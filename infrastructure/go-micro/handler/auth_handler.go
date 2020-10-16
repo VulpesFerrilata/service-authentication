@@ -3,8 +3,8 @@ package handler
 import (
 	"context"
 
-	"github.com/VulpesFerrilata/auth/infrastructure/go-micro/viewmodel"
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
+	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/VulpesFerrilata/grpc/protoc/auth"
 )
 
@@ -19,14 +19,14 @@ type authHandler struct {
 }
 
 func (ah authHandler) Authenticate(ctx context.Context, tokenRequestPb *auth.TokenRequest, claimResponsePb *auth.ClaimResponse) error {
-	tokenRequestVM := viewmodel.NewTokenRequest(tokenRequestPb)
+	tokenRequest := new(request.TokenRequest)
+	tokenRequest.Token = tokenRequestPb.Token
 
-	claimDTO, err := ah.authInteractor.Authenticate(ctx, tokenRequestVM.ToTokenForm())
+	claimResponse, err := ah.authInteractor.Authenticate(ctx, tokenRequest)
 	if err != nil {
 		return err
 	}
+	claimResponsePb.UserID = int64(claimResponse.UserID)
 
-	claimResponseVM := viewmodel.NewClaimResponse(claimResponsePb)
-	claimResponseVM.FromClaimDTO(claimDTO)
 	return nil
 }

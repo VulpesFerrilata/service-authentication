@@ -7,7 +7,6 @@ import (
 	"github.com/VulpesFerrilata/auth/infrastructure/iris/server"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
-	"github.com/VulpesFerrilata/auth/internal/usecase/adapter"
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
 	gateway "github.com/VulpesFerrilata/grpc/service"
 	"github.com/VulpesFerrilata/library/config"
@@ -28,10 +27,10 @@ func NewContainer() *dig.Container {
 	container.Provide(config.NewJwtConfig)
 
 	//--Domain
-	container.Provide(repository.NewTokenRepository)
-	container.Provide(service.NewAuthService)
+	container.Provide(repository.NewClaimRepository)
+	container.Provide(service.NewClaimService)
+	container.Provide(service.NewTokenService)
 	//--Usecase
-	container.Provide(adapter.NewAuthAdapter)
 	container.Provide(interactor.NewAuthInteractor)
 	//--Gateways
 	container.Provide(gateway.NewUserService)

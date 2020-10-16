@@ -1,9 +1,8 @@
 package controller
 
 import (
-	"github.com/VulpesFerrilata/auth/infrastructure/iris/request"
-	"github.com/VulpesFerrilata/auth/infrastructure/iris/response"
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
+	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/mvc"
 )
@@ -23,19 +22,19 @@ type authController struct {
 }
 
 func (ac authController) PostLogin(ctx iris.Context) interface{} {
-	loginRequest := new(request.LoginRequest)
+	credentialRequest := new(request.CredentialRequest)
 
-	if err := ctx.ReadJSON(loginRequest); err != nil {
+	if err := ctx.ReadJSON(credentialRequest); err != nil {
 		return err
 	}
 
-	tokenDTO, err := ac.authInteractor.Login(ctx.Request().Context(), loginRequest.ToCredentialRequestPb())
+	tokenResponse, err := ac.authInteractor.Login(ctx.Request().Context(), credentialRequest)
 	if err != nil {
 		return err
 	}
 
 	return mvc.Response{
 		Code:   iris.StatusCreated,
-		Object: response.NewTokenResponse(tokenDTO),
+		Object: tokenResponse,
 	}
 }

@@ -3,73 +3,109 @@ package interactor
 import (
 	"context"
 
+	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
-	"github.com/VulpesFerrilata/auth/internal/usecase/adapter"
-	"github.com/VulpesFerrilata/auth/internal/usecase/dto"
-	"github.com/VulpesFerrilata/auth/internal/usecase/form"
+	"github.com/VulpesFerrilata/auth/internal/usecase/request"
+	"github.com/VulpesFerrilata/auth/internal/usecase/response"
 	"github.com/VulpesFerrilata/grpc/protoc/user"
+	"github.com/VulpesFerrilata/library/pkg/validator"
 )
 
 type AuthInteractor interface {
-	Login(ctx context.Context, credentialRequest *user.CredentialRequest) (*dto.TokenDTO, error)
-	Authenticate(ctx context.Context, tokenForm *form.TokenForm) (*dto.ClaimDTO, error)
-	Refresh(ctx context.Context, tokenForm *form.TokenForm) (*dto.TokenDTO, error)
+	Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error)
+	Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error)
+	Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error)
 }
 
-func NewAuthInteractor(authService service.AuthService, authAdapter adapter.AuthAdapter, userService user.UserService) AuthInteractor {
+func NewAuthInteractor(validate validator.Validate,
+	claimService service.ClaimService,
+	tokenService service.TokenService,
+	userService user.UserService) AuthInteractor {
 	return &authInteractor{
-		authService: authService,
-		authAdapter: authAdapter,
-		userService: userService,
+		validate:     validate,
+		claimService: claimService,
+		tokenService: tokenService,
+		userService:  userService,
 	}
 }
 
 type authInteractor struct {
-	authService service.AuthService
-	authAdapter adapter.AuthAdapter
-	userService user.UserService
+	validate     validator.Validate
+	claimService service.ClaimService
+	tokenService service.TokenService
+	userService  user.UserService
 }
 
-func (ai authInteractor) Login(ctx context.Context, credentialRequest *user.CredentialRequest) (*dto.TokenDTO, error) {
-	userPb, err := ai.userService.GetUserByCredential(ctx, credentialRequest)
+func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error) {
+	if err := ai.validate.Struct(ctx, credentialRequest); err != nil {
+		return nil, err
+	}
+
+	credentialRequestPb := credentialRequest.ToCredentialRequestPb()
+	userPb, err := ai.userService.GetUserByCredential(ctx, credentialRequestPb)
 	if err != nil {
 		return nil, err
 	}
 
-	token, err := ai.authAdapter.ParseUserPb(ctx, userPb)
+	claim := new(datamodel.Claim)
+	claim.UserID = uint(userPb.ID)
+	if err := ai.claimService.Create(ctx, claim); err != nil {
+		return nil, err
+	}
+
+	tokenResponse := new(response.TokenResponse)
+	accessToken, err := ai.tokenService.EncryptToken(ctx, service.AccessToken, claim)
 	if err != nil {
 		return nil, err
 	}
+	tokenResponse.AccessToken = accessToken
 
-	if err := ai.authService.CreateOrUpdate(ctx, token); err != nil {
+	refreshToken, err := ai.tokenService.EncryptToken(ctx, service.RefreshToken, claim)
+	if err != nil {
 		return nil, err
 	}
+	tokenResponse.RefreshToken = refreshToken
 
-	return ai.authAdapter.ResponseToken(ctx, token, false)
+	return tokenResponse, nil
 }
 
-func (ai authInteractor) Authenticate(ctx context.Context, tokenForm *form.TokenForm) (*dto.ClaimDTO, error) {
-	token, err := ai.authAdapter.ParseAccessToken(ctx, tokenForm)
+func (ai authInteractor) Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error) {
+	if err := ai.validate.Struct(ctx, tokenRequest); err != nil {
+		return nil, err
+	}
+
+	claim, err := ai.tokenService.DecryptToken(ctx, service.AccessToken, tokenRequest.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := ai.authService.ValidateAuthenticate(ctx, token); err != nil {
+	if err := ai.claimService.ValidateAuthenticate(ctx, claim); err != nil {
 		return nil, err
 	}
 
-	return ai.authAdapter.ResponseClaim(ctx, token)
+	return response.NewClaimResponse(claim), nil
 }
 
-func (ai authInteractor) Refresh(ctx context.Context, tokenForm *form.TokenForm) (*dto.TokenDTO, error) {
-	token, err := ai.authAdapter.ParseRefreshToken(ctx, tokenForm)
+func (ai authInteractor) Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error) {
+	if err := ai.validate.Struct(ctx, tokenRequest); err != nil {
+		return nil, err
+	}
+
+	claim, err := ai.tokenService.DecryptToken(ctx, service.RefreshToken, tokenRequest.Token)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := ai.authService.ValidateAuthenticate(ctx, token); err != nil {
+	if err := ai.claimService.ValidateAuthenticate(ctx, claim); err != nil {
 		return nil, err
 	}
 
-	return ai.authAdapter.ResponseToken(ctx, token, true)
+	tokenResponse := new(response.TokenResponse)
+	accessToken, err := ai.tokenService.EncryptToken(ctx, service.AccessToken, claim)
+	if err != nil {
+		return nil, err
+	}
+	tokenResponse.AccessToken = accessToken
+
+	return tokenResponse, nil
 }

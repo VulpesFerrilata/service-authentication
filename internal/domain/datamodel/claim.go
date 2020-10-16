@@ -1,10 +1,10 @@
-package model
+package datamodel
 
 import (
 	"gorm.io/gorm"
 )
 
-type Token struct {
+type Claim struct {
 	*gorm.Model
 	UserID uint   `gorm:"uniqueIndex"`
 	Jti    string `gorm:"uniqueIndex"`
