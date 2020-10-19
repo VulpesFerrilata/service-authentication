@@ -6,6 +6,6 @@ import (
 
 type Claim struct {
 	*gorm.Model
-	UserID uint   `gorm:"uniqueIndex"`
-	Jti    string `gorm:"uniqueIndex"`
+	UserID uint   `gorm:"unique,index:user_id_jti"`
+	Jti    string `gorm:"index:user_id_jti"`
 }
