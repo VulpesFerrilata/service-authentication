@@ -3,7 +3,7 @@ package interactor
 import (
 	"context"
 
-	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
+	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
 	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/VulpesFerrilata/auth/internal/usecase/response"
@@ -47,20 +47,20 @@ func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.C
 		return nil, err
 	}
 
-	claim := new(datamodel.Claim)
+	claim := new(model.Claim)
 	claim.UserID = uint(userPb.ID)
 	if err := ai.claimService.Create(ctx, claim); err != nil {
 		return nil, err
 	}
 
 	tokenResponse := new(response.TokenResponse)
-	accessToken, err := ai.tokenService.EncryptToken(ctx, service.AccessToken, claim)
+	accessToken, err := ai.tokenService.EncryptAccessToken(ctx, claim)
 	if err != nil {
 		return nil, err
 	}
 	tokenResponse.AccessToken = accessToken
 
-	refreshToken, err := ai.tokenService.EncryptToken(ctx, service.RefreshToken, claim)
+	refreshToken, err := ai.tokenService.EncryptRefreshToken(ctx, claim)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (ai authInteractor) Authenticate(ctx context.Context, tokenRequest *request
 		return nil, err
 	}
 
-	claim, err := ai.tokenService.DecryptToken(ctx, service.AccessToken, tokenRequest.Token)
+	claim, err := ai.tokenService.DecryptAccessToken(ctx, tokenRequest.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (ai authInteractor) Refresh(ctx context.Context, tokenRequest *request.Toke
 		return nil, err
 	}
 
-	claim, err := ai.tokenService.DecryptToken(ctx, service.RefreshToken, tokenRequest.Token)
+	claim, err := ai.tokenService.DecryptRefreshToken(ctx, tokenRequest.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (ai authInteractor) Refresh(ctx context.Context, tokenRequest *request.Toke
 	}
 
 	tokenResponse := new(response.TokenResponse)
-	accessToken, err := ai.tokenService.EncryptToken(ctx, service.AccessToken, claim)
+	accessToken, err := ai.tokenService.EncryptAccessToken(ctx, claim)
 	if err != nil {
 		return nil, err
 	}
