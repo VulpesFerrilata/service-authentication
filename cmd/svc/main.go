@@ -19,12 +19,12 @@ func main() {
 	if err := container.Invoke(func(authHandler auth.AuthHandler,
 		transactionMiddleware *middleware.TransactionMiddleware,
 		translatorMiddleware *middleware.TranslatorMiddleware,
-		errorMiddleware *middleware.ErrorMiddleware) error {
+		errorHandlerMiddleware *middleware.ErrorHandlerMiddleware) error {
 		// New Service
 		service := micro.NewService(
 			micro.Server(
 				grpc.NewServer(
-					server.WrapHandler(errorMiddleware.HandlerWrapper),
+					server.WrapHandler(errorHandlerMiddleware.HandlerWrapper),
 					server.WrapHandler(transactionMiddleware.HandlerWrapperWithTxOptions(&sql.TxOptions{})),
 					server.WrapHandler(translatorMiddleware.HandlerWrapper),
 				),

@@ -16,20 +16,20 @@ type Router interface {
 func NewRouter(authController controller.AuthController,
 	transactionMiddleware *middleware.TransactionMiddleware,
 	translatorMiddleware *middleware.TranslatorMiddleware,
-	errorMiddleware *middleware.ErrorMiddleware) Router {
+	errorHandlerMiddleware *middleware.ErrorHandlerMiddleware) Router {
 	return &router{
-		authController:        authController,
-		transactionMiddleware: transactionMiddleware,
-		translatorMiddleware:  translatorMiddleware,
-		errorMiddleware:       errorMiddleware,
+		authController:         authController,
+		transactionMiddleware:  transactionMiddleware,
+		translatorMiddleware:   translatorMiddleware,
+		errorHandlerMiddleware: errorHandlerMiddleware,
 	}
 }
 
 type router struct {
-	authController        controller.AuthController
-	transactionMiddleware *middleware.TransactionMiddleware
-	translatorMiddleware  *middleware.TranslatorMiddleware
-	errorMiddleware       *middleware.ErrorMiddleware
+	authController         controller.AuthController
+	transactionMiddleware  *middleware.TransactionMiddleware
+	translatorMiddleware   *middleware.TranslatorMiddleware
+	errorHandlerMiddleware *middleware.ErrorHandlerMiddleware
 }
 
 func (r router) InitRoutes(app *iris.Application) {
@@ -39,6 +39,6 @@ func (r router) InitRoutes(app *iris.Application) {
 		r.translatorMiddleware.Serve,
 	)
 	mvcApp := mvc.New(apiRoot.Party("/auth"))
-	mvcApp.HandleError(r.errorMiddleware.ErrorHandler)
+	mvcApp.HandleError(r.errorHandlerMiddleware.ErrorHandler)
 	mvcApp.Handle(r.authController)
 }

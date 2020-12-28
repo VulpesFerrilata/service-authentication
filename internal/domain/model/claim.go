@@ -3,17 +3,64 @@ package model
 import (
 	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
 	uuid "github.com/iris-contrib/go.uuid"
+	"github.com/pkg/errors"
 )
 
-type Claim struct {
-	datamodel.Claim
-}
+func NewClaim(userId uint) (*Claim, error) {
+	claim := new(Claim)
+	claim.userID = userId
 
-func (c *Claim) Init() error {
 	uuid, err := uuid.NewV4()
 	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "model.NewClaim")
 	}
-	c.Jti = uuid.String()
+	claim.jti = uuid.String()
+
+	return claim, nil
+}
+
+func NewClaimWithJti(userId uint, jti string) *Claim {
+	claim := new(Claim)
+	claim.userID = userId
+	claim.jti = jti
+	return claim
+}
+
+func EmptyClaim() *Claim {
+	return new(Claim)
+}
+
+type Claim struct {
+	id     uint
+	userID uint
+	jti    string
+}
+
+func (c Claim) GetId() uint {
+	return c.id
+}
+
+func (c Claim) GetUserId() uint {
+	return c.userID
+}
+
+func (c Claim) GetJti() string {
+	return c.jti
+}
+
+func (c *Claim) Persist(f func(claim *datamodel.Claim) error) error {
+	claim := new(datamodel.Claim)
+	claim.ID = c.id
+	claim.UserID = c.userID
+	claim.Jti = c.jti
+
+	if err := f(claim); err != nil {
+		return errors.Wrap(err, "model.Claim.Persist")
+	}
+
+	c.id = claim.ID
+	c.userID = claim.UserID
+	c.jti = claim.Jti
+
 	return nil
 }

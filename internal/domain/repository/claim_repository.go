@@ -2,11 +2,12 @@ package repository
 
 import (
 	"context"
-	"errors"
 
+	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
-	"github.com/VulpesFerrilata/library/pkg/db"
-	server_errors "github.com/VulpesFerrilata/library/pkg/errors"
+	"github.com/VulpesFerrilata/library/pkg/app_error"
+	"github.com/VulpesFerrilata/library/pkg/middleware"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -17,32 +18,40 @@ type SafeClaimRepository interface {
 type ClaimRepository interface {
 	SafeClaimRepository
 	Insert(ctx context.Context, claim *model.Claim) error
-	DeleteByUserId(ctx context.Context, claim *model.Claim) error
+	DeleteByUserId(ctx context.Context, userId uint) error
 }
 
-func NewClaimRepository(dbContext *db.DbContext) ClaimRepository {
+func NewClaimRepository(transactionMiddleware *middleware.TransactionMiddleware) ClaimRepository {
 	return &claimRepository{
-		dbContext: dbContext,
+		transactionMiddleware: transactionMiddleware,
 	}
 }
 
 type claimRepository struct {
-	dbContext *db.DbContext
+	transactionMiddleware *middleware.TransactionMiddleware
 }
 
 func (tr claimRepository) GetByUserId(ctx context.Context, userId uint) (*model.Claim, error) {
-	claim := new(model.Claim)
-	err := tr.dbContext.GetDB(ctx).First(claim, "user_id = ?", userId).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = server_errors.NewNotFoundError("claim")
-	}
-	return claim, err
+	claim := model.EmptyClaim()
+
+	return claim, claim.Persist(func(claim *datamodel.Claim) error {
+		err := tr.transactionMiddleware.Get(ctx).First(claim, "user_id = ?", userId).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			err = app_error.NewNotFoundError("claim")
+		}
+		return errors.Wrap(err, "repository.ClaimRepository.GetByUserId")
+	})
 }
 
 func (tr claimRepository) Insert(ctx context.Context, claim *model.Claim) error {
-	return tr.dbContext.GetDB(ctx).Create(claim).Error
+	return claim.Persist(func(claim *datamodel.Claim) error {
+		err := tr.transactionMiddleware.Get(ctx).Create(claim).Error
+		return errors.Wrap(err, "repository.ClaimRepository.Insert")
+	})
 }
 
-func (tr claimRepository) DeleteByUserId(ctx context.Context, claim *model.Claim) error {
-	return tr.dbContext.GetDB(ctx).Delete(claim, "user_id = ?", claim.UserID).Error
+func (tr claimRepository) DeleteByUserId(ctx context.Context, userId uint) error {
+	claim := new(datamodel.Claim)
+	err := tr.transactionMiddleware.Get(ctx).Delete(claim, "user_id = ?", userId).Error
+	return errors.Wrap(err, "repository.ClaimRepository.DeleteByUserId")
 }

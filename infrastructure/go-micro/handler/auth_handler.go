@@ -6,6 +6,7 @@ import (
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
 	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/VulpesFerrilata/grpc/protoc/auth"
+	"github.com/pkg/errors"
 )
 
 func NewAuthHandler(authInteractor interactor.AuthInteractor) auth.AuthHandler {
@@ -24,7 +25,7 @@ func (ah authHandler) Authenticate(ctx context.Context, tokenRequestPb *auth.Tok
 
 	claimResponse, err := ah.authInteractor.Authenticate(ctx, tokenRequest)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "handler.AuthHandler.Authenticate")
 	}
 	claimResponsePb.UserID = int64(claimResponse.UserID)
 
