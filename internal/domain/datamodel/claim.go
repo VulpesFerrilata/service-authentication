@@ -1,11 +1,15 @@
 package datamodel
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
 type Claim struct {
-	gorm.Model
-	UserID uint   `gorm:"uniqueIndex" validate:"required"`
-	Jti    string `validate:"required"`
+	UserID    uint   `gorm:"primarykey" validate:"required"`
+	Jti       string `validate:"required"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }

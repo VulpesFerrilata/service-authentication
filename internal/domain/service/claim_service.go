@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/VulpesFerrilata/auth/internal/business_rule_error"
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
 	"github.com/VulpesFerrilata/library/pkg/app_error"
@@ -11,7 +12,6 @@ import (
 
 type ClaimService interface {
 	GetClaimRepository() repository.SafeClaimRepository
-	GetOrNewClaim(ctx context.Context, userId uint) (*model.Claim, error)
 	ValidateAuthenticate(ctx context.Context, userId uint, jti string) error
 	Save(ctx context.Context, claim *model.Claim) error
 }
@@ -30,18 +30,6 @@ func (cs claimService) GetClaimRepository() repository.SafeClaimRepository {
 	return cs.claimRepository
 }
 
-func (cs claimService) GetOrNewClaim(ctx context.Context, userId uint) (*model.Claim, error) {
-	claim, err := cs.claimRepository.GetByUserId(ctx, userId)
-	if err != nil {
-		if _, ok := errors.Cause(err).(*app_error.NotFoundError); ok {
-			claim, err = model.NewClaim(userId)
-			return claim, errors.Wrap(err, "service.ClaimService.NewClaim")
-		}
-		return nil, errors.Wrap(err, "service.ClaimService.NewClaim")
-	}
-	return claim, nil
-}
-
 func (cs claimService) ValidateAuthenticate(ctx context.Context, userId uint, jti string) error {
 	claim, err := cs.claimRepository.GetByUserId(ctx, userId)
 	if err != nil {
@@ -49,16 +37,16 @@ func (cs claimService) ValidateAuthenticate(ctx context.Context, userId uint, jt
 	}
 
 	if claim.GetJti() != jti {
-
+		var businessRuleErrors app_error.BusinessRuleErrors
+		loggedInByAnotherDeviceError := business_rule_error.NewLoggedInByAnotherDeviceError()
+		businessRuleErrors = append(businessRuleErrors, loggedInByAnotherDeviceError)
+		return businessRuleErrors
 	}
 
 	return nil
 }
 
 func (cs claimService) Save(ctx context.Context, claim *model.Claim) error {
-	if err := cs.claimRepository.DeleteByUserId(ctx, claim.GetUserId()); err != nil {
-		return errors.Wrap(err, "service.ClaimService.Create")
-	}
-	err := cs.claimRepository.Insert(ctx, claim)
-	return errors.Wrap(err, "service.ClaimService.Create")
+	err := cs.claimRepository.InsertOrUpdate(ctx, claim)
+	return errors.Wrap(err, "service.ClaimService.Save")
 }

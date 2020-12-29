@@ -8,6 +8,7 @@ import (
 	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
 	"github.com/pkg/errors"
+	"gopkg.in/go-playground/validator.v9"
 	"gorm.io/gorm"
 )
 
@@ -17,25 +18,27 @@ type SafeClaimRepository interface {
 
 type ClaimRepository interface {
 	SafeClaimRepository
-	Insert(ctx context.Context, claim *model.Claim) error
-	DeleteByUserId(ctx context.Context, userId uint) error
+	InsertOrUpdate(ctx context.Context, claim *model.Claim) error
 }
 
-func NewClaimRepository(transactionMiddleware *middleware.TransactionMiddleware) ClaimRepository {
+func NewClaimRepository(transactionMiddleware *middleware.TransactionMiddleware,
+	validate *validator.Validate) ClaimRepository {
 	return &claimRepository{
 		transactionMiddleware: transactionMiddleware,
+		validate:              validate,
 	}
 }
 
 type claimRepository struct {
 	transactionMiddleware *middleware.TransactionMiddleware
+	validate              *validator.Validate
 }
 
 func (tr claimRepository) GetByUserId(ctx context.Context, userId uint) (*model.Claim, error) {
 	claim := model.EmptyClaim()
 
 	return claim, claim.Persist(func(claim *datamodel.Claim) error {
-		err := tr.transactionMiddleware.Get(ctx).First(claim, "user_id = ?", userId).Error
+		err := tr.transactionMiddleware.Get(ctx).First(claim, userId).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			err = app_error.NewNotFoundError("claim")
 		}
@@ -43,15 +46,16 @@ func (tr claimRepository) GetByUserId(ctx context.Context, userId uint) (*model.
 	})
 }
 
-func (tr claimRepository) Insert(ctx context.Context, claim *model.Claim) error {
+func (tr claimRepository) InsertOrUpdate(ctx context.Context, claim *model.Claim) error {
 	return claim.Persist(func(claim *datamodel.Claim) error {
-		err := tr.transactionMiddleware.Get(ctx).Create(claim).Error
-		return errors.Wrap(err, "repository.ClaimRepository.Insert")
-	})
-}
+		if err := tr.validate.StructCtx(ctx, claim); err != nil {
+			if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
+				err = app_error.NewValidationError(app_error.EntityValidation, "claim", fieldErrors)
+			}
+			return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
+		}
 
-func (tr claimRepository) DeleteByUserId(ctx context.Context, userId uint) error {
-	claim := new(datamodel.Claim)
-	err := tr.transactionMiddleware.Get(ctx).Delete(claim, "user_id = ?", userId).Error
-	return errors.Wrap(err, "repository.ClaimRepository.DeleteByUserId")
+		err := tr.transactionMiddleware.Get(ctx).Save(claim).Error
+		return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
+	})
 }

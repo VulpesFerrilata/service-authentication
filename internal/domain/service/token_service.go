@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -60,7 +61,7 @@ func (ts tokenService) DecryptToken(ctx context.Context, tokenType TokenType, to
 func (ts tokenService) encryptToken(ctx context.Context, claim *model.Claim, tokenSettings config.TokenSettings) (string, error) {
 	standardClaim := new(jwt.StandardClaims)
 	standardClaim.Id = claim.GetJti()
-	standardClaim.Subject = string(claim.GetUserId())
+	standardClaim.Subject = fmt.Sprint(claim.GetUserId())
 	standardClaim.IssuedAt = time.Now().Unix()
 	standardClaim.ExpiresAt = time.Now().Add(tokenSettings.Duration).Unix()
 

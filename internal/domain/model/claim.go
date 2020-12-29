@@ -31,13 +31,8 @@ func EmptyClaim() *Claim {
 }
 
 type Claim struct {
-	id     uint
 	userID uint
 	jti    string
-}
-
-func (c Claim) GetId() uint {
-	return c.id
 }
 
 func (c Claim) GetUserId() uint {
@@ -50,7 +45,6 @@ func (c Claim) GetJti() string {
 
 func (c *Claim) Persist(f func(claim *datamodel.Claim) error) error {
 	claim := new(datamodel.Claim)
-	claim.ID = c.id
 	claim.UserID = c.userID
 	claim.Jti = c.jti
 
@@ -58,7 +52,6 @@ func (c *Claim) Persist(f func(claim *datamodel.Claim) error) error {
 		return errors.Wrap(err, "model.Claim.Persist")
 	}
 
-	c.id = claim.ID
 	c.userID = claim.UserID
 	c.jti = claim.Jti
 
