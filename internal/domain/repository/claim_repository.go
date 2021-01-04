@@ -13,12 +13,12 @@ import (
 )
 
 type SafeClaimRepository interface {
-	GetByUserId(ctx context.Context, userId uint) (*model.Claim, error)
+	GetByUserId(ctx context.Context, userId int) (*datamodel.Claim, error)
 }
 
 type ClaimRepository interface {
 	SafeClaimRepository
-	InsertOrUpdate(ctx context.Context, claim *model.Claim) error
+	InsertOrUpdate(ctx context.Context, claim *datamodel.Claim) error
 }
 
 func NewClaimRepository(transactionMiddleware *middleware.TransactionMiddleware,
@@ -34,28 +34,26 @@ type claimRepository struct {
 	validate              *validator.Validate
 }
 
-func (tr claimRepository) GetByUserId(ctx context.Context, userId uint) (*model.Claim, error) {
-	claim := model.EmptyClaim()
+func (tr claimRepository) GetByUserId(ctx context.Context, userId int) (*datamodel.Claim, error) {
+	claimModel := new(model.Claim)
 
-	return claim, claim.Persist(func(claim *datamodel.Claim) error {
-		err := tr.transactionMiddleware.Get(ctx).First(claim, userId).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			err = app_error.NewNotFoundError("claim")
-		}
-		return errors.Wrap(err, "repository.ClaimRepository.GetByUserId")
-	})
+	err := tr.transactionMiddleware.Get(ctx).First(claimModel, userId).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		err = app_error.NewNotFoundError("claim")
+	}
+	return datamodel.NewClaimFromClaimModel(claimModel), errors.Wrap(err, "repository.ClaimRepository.GetByUserId")
 }
 
-func (tr claimRepository) InsertOrUpdate(ctx context.Context, claim *model.Claim) error {
-	return claim.Persist(func(claim *datamodel.Claim) error {
-		if err := tr.validate.StructCtx(ctx, claim); err != nil {
+func (tr claimRepository) InsertOrUpdate(ctx context.Context, claim *datamodel.Claim) error {
+	return claim.Persist(func(claimModel *model.Claim) error {
+		if err := tr.validate.StructCtx(ctx, claimModel); err != nil {
 			if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-				err = app_error.NewValidationError(app_error.EntityValidation, "claim", fieldErrors)
+				err = app_error.NewEntityValidationError(claimModel, fieldErrors)
 			}
 			return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
 		}
 
-		err := tr.transactionMiddleware.Get(ctx).Save(claim).Error
+		err := tr.transactionMiddleware.Get(ctx).Save(claimModel).Error
 		return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
 	})
 }

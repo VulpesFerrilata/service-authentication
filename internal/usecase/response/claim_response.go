@@ -1,10 +1,10 @@
 package response
 
-import "github.com/VulpesFerrilata/auth/internal/domain/model"
+import "github.com/VulpesFerrilata/auth/internal/domain/datamodel"
 
-func NewClaimResponse(claim *model.Claim) *ClaimResponse {
+func NewClaimResponse(claim *datamodel.Claim) *ClaimResponse {
 	claimResponse := new(ClaimResponse)
-	claimResponse.UserID = int(claim.GetUserId())
+	claimResponse.UserID = claim.GetUserId()
 	return claimResponse
 }
 

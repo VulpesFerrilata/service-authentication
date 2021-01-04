@@ -6,15 +6,15 @@ import (
 )
 
 func NewLoggedInByAnotherDeviceError() app_error.BusinessRuleError {
-	return &LoggedInByAnotherDeviceError{}
+	return &loggedInByAnotherDeviceError{}
 }
 
-type LoggedInByAnotherDeviceError struct{}
+type loggedInByAnotherDeviceError struct{}
 
-func (libade LoggedInByAnotherDeviceError) Error() string {
+func (libade loggedInByAnotherDeviceError) Error() string {
 	return "your account has been logged in by another device"
 }
 
-func (libade LoggedInByAnotherDeviceError) Translate(trans ut.Translator) (string, error) {
+func (libade loggedInByAnotherDeviceError) Translate(trans ut.Translator) (string, error) {
 	return trans.T("logged-in-by-another-device-error")
 }

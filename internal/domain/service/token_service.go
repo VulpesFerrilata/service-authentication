@@ -3,10 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
-	"github.com/VulpesFerrilata/auth/internal/domain/model"
+	"github.com/VulpesFerrilata/auth/internal/business_rule_error"
+	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
 	"github.com/VulpesFerrilata/library/config"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
@@ -22,8 +22,8 @@ const (
 var InvalidTokenTypeErr = errors.New("invalid token type")
 
 type TokenService interface {
-	EncryptToken(ctx context.Context, tokenType TokenType, claim *model.Claim) (string, error)
-	DecryptToken(ctx context.Context, tokenType TokenType, token string) (*model.Claim, error)
+	EncryptToken(ctx context.Context, tokenType TokenType, claim *datamodel.Claim) (string, error)
+	DecryptToken(ctx context.Context, tokenType TokenType, token string) (*datamodel.Claim, error)
 }
 
 func NewTokenService(jwtCfg *config.JwtConfig) TokenService {
@@ -36,7 +36,7 @@ type tokenService struct {
 	jwtCfg *config.JwtConfig
 }
 
-func (ts tokenService) EncryptToken(ctx context.Context, tokenType TokenType, claim *model.Claim) (string, error) {
+func (ts tokenService) EncryptToken(ctx context.Context, tokenType TokenType, claim *datamodel.Claim) (string, error) {
 	switch tokenType {
 	case AccessToken:
 		return ts.encryptToken(ctx, claim, ts.jwtCfg.AccessTokenSettings)
@@ -47,7 +47,7 @@ func (ts tokenService) EncryptToken(ctx context.Context, tokenType TokenType, cl
 	}
 }
 
-func (ts tokenService) DecryptToken(ctx context.Context, tokenType TokenType, token string) (*model.Claim, error) {
+func (ts tokenService) DecryptToken(ctx context.Context, tokenType TokenType, token string) (*datamodel.Claim, error) {
 	switch tokenType {
 	case AccessToken:
 		return ts.decryptToken(ctx, token, ts.jwtCfg.AccessTokenSettings)
@@ -58,7 +58,7 @@ func (ts tokenService) DecryptToken(ctx context.Context, tokenType TokenType, to
 	}
 }
 
-func (ts tokenService) encryptToken(ctx context.Context, claim *model.Claim, tokenSettings config.TokenSettings) (string, error) {
+func (ts tokenService) encryptToken(ctx context.Context, claim *datamodel.Claim, tokenSettings config.TokenSettings) (string, error) {
 	standardClaim := new(jwt.StandardClaims)
 	standardClaim.Id = claim.GetJti()
 	standardClaim.Subject = fmt.Sprint(claim.GetUserId())
@@ -68,9 +68,10 @@ func (ts tokenService) encryptToken(ctx context.Context, claim *model.Claim, tok
 	return jwt.NewWithClaims(jwt.GetSigningMethod(tokenSettings.Alg), standardClaim).SignedString([]byte(tokenSettings.SecretKey))
 }
 
-func (ts tokenService) decryptToken(ctx context.Context, token string, tokenSettings config.TokenSettings) (*model.Claim, error) {
+func (ts tokenService) decryptToken(ctx context.Context, token string, tokenSettings config.TokenSettings) (*datamodel.Claim, error) {
 	parser := &jwt.Parser{
 		SkipClaimsValidation: true,
+		ValidMethods:         []string{tokenSettings.Alg},
 	}
 
 	standardClaim := new(jwt.StandardClaims)
@@ -78,16 +79,15 @@ func (ts tokenService) decryptToken(ctx context.Context, token string, tokenSett
 		return []byte(tokenSettings.SecretKey), nil
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "service.TokenService.decryptToken")
+		return nil, business_rule_error.NewInvalidTokenError()
 	}
 
 	//validate
-
-	userId, err := strconv.ParseUint(standardClaim.Subject, 10, 32)
-	if err != nil {
-		return nil, errors.Wrap(err, "service.TokenService.decryptToken")
+	now := time.Now().Unix()
+	if !standardClaim.VerifyExpiresAt(now, true) {
+		delta := time.Unix(now, 0).Sub(time.Unix(standardClaim.ExpiresAt, 0))
+		return nil, business_rule_error.NewExpiredTokenError(delta)
 	}
-	claim := model.NewClaimWithJti(uint(userId), standardClaim.Id)
 
-	return claim, nil
+	return datamodel.NewClaimFromStandardClaim(standardClaim)
 }

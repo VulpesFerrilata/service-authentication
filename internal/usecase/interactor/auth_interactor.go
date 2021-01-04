@@ -3,7 +3,7 @@ package interactor
 import (
 	"context"
 
-	"github.com/VulpesFerrilata/auth/internal/domain/model"
+	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
 	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/VulpesFerrilata/auth/internal/usecase/response"
@@ -41,7 +41,7 @@ type authInteractor struct {
 func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error) {
 	if err := ai.validate.StructCtx(ctx, credentialRequest); err != nil {
 		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewValidationError(app_error.InputValidation, "credential", fieldErrors)
+			err = app_error.NewInputValidationError(credentialRequest, fieldErrors)
 		}
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}
@@ -54,7 +54,7 @@ func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.C
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}
 
-	claim, err := model.NewClaim(uint(userPb.GetID()))
+	claim, err := datamodel.NewClaim(int(userPb.GetID()))
 	if err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}
@@ -82,7 +82,7 @@ func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.C
 func (ai authInteractor) Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error) {
 	if err := ai.validate.StructCtx(ctx, tokenRequest); err != nil {
 		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewValidationError(app_error.InputValidation, "token", fieldErrors)
+			err = app_error.NewInputValidationError(tokenRequest, fieldErrors)
 		}
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Authenticate")
 	}
@@ -102,7 +102,7 @@ func (ai authInteractor) Authenticate(ctx context.Context, tokenRequest *request
 func (ai authInteractor) Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error) {
 	if err := ai.validate.StructCtx(ctx, tokenRequest); err != nil {
 		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewValidationError(app_error.InputValidation, "token", fieldErrors)
+			err = app_error.NewInputValidationError(tokenRequest, fieldErrors)
 		}
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Refresh")
 	}
