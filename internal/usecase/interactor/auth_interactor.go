@@ -41,7 +41,7 @@ type authInteractor struct {
 func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error) {
 	if err := ai.validate.StructCtx(ctx, credentialRequest); err != nil {
 		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewInputValidationError(credentialRequest, fieldErrors)
+			err = app_error.NewValidationError(fieldErrors)
 		}
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}
@@ -59,7 +59,7 @@ func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.C
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}
 
-	if err := ai.claimService.Save(ctx, claim); err != nil {
+	if err := ai.claimService.GetClaimRepository().InsertOrUpdate(ctx, claim); err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}
 
@@ -82,7 +82,7 @@ func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.C
 func (ai authInteractor) Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error) {
 	if err := ai.validate.StructCtx(ctx, tokenRequest); err != nil {
 		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewInputValidationError(tokenRequest, fieldErrors)
+			err = app_error.NewValidationError(fieldErrors)
 		}
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Authenticate")
 	}
@@ -102,7 +102,7 @@ func (ai authInteractor) Authenticate(ctx context.Context, tokenRequest *request
 func (ai authInteractor) Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error) {
 	if err := ai.validate.StructCtx(ctx, tokenRequest); err != nil {
 		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewInputValidationError(tokenRequest, fieldErrors)
+			err = app_error.NewValidationError(fieldErrors)
 		}
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Refresh")
 	}

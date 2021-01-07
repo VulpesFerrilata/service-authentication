@@ -35,6 +35,7 @@ type router struct {
 func (r router) InitRoutes(app *iris.Application) {
 	apiRoot := app.Party("/api")
 	apiRoot.Use(
+		r.errorHandlerMiddleware.Serve,
 		r.transactionMiddleware.ServeWithTxOptions(&sql.TxOptions{}),
 		r.translatorMiddleware.Serve,
 	)

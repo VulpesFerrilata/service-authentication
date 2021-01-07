@@ -12,12 +12,8 @@ import (
 	"gorm.io/gorm"
 )
 
-type SafeClaimRepository interface {
-	GetByUserId(ctx context.Context, userId int) (*datamodel.Claim, error)
-}
-
 type ClaimRepository interface {
-	SafeClaimRepository
+	GetByUserId(ctx context.Context, userId int) (*datamodel.Claim, error)
 	InsertOrUpdate(ctx context.Context, claim *datamodel.Claim) error
 }
 
@@ -47,9 +43,6 @@ func (tr claimRepository) GetByUserId(ctx context.Context, userId int) (*datamod
 func (tr claimRepository) InsertOrUpdate(ctx context.Context, claim *datamodel.Claim) error {
 	return claim.Persist(func(claimModel *model.Claim) error {
 		if err := tr.validate.StructCtx(ctx, claimModel); err != nil {
-			if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-				err = app_error.NewEntityValidationError(claimModel, fieldErrors)
-			}
 			return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
 		}
 

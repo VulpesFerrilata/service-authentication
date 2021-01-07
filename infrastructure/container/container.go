@@ -8,12 +8,14 @@ import (
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
+	"github.com/VulpesFerrilata/grpc/protoc/user"
 	gateway "github.com/VulpesFerrilata/grpc/service"
 	"github.com/VulpesFerrilata/library/config"
 	"github.com/VulpesFerrilata/library/pkg/database"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
 	"github.com/VulpesFerrilata/library/pkg/translator"
 	"github.com/VulpesFerrilata/library/pkg/validator"
+	"github.com/micro/go-micro/v2/client"
 
 	"go.uber.org/dig"
 )
@@ -32,7 +34,11 @@ func NewContainer() *dig.Container {
 	//--Usecase
 	container.Provide(interactor.NewAuthInteractor)
 	//--Gateways
-	container.Provide(gateway.NewUserService)
+	container.Provide(func(translatorMiddleware *middleware.TranslatorMiddleware) user.UserService {
+		return gateway.NewUserService(client.WrapCall(
+			translatorMiddleware.CallWrapper,
+		))
+	})
 
 	//--Utility
 	container.Provide(database.NewGorm)

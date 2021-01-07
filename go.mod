@@ -7,8 +7,8 @@ go 1.14
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 require (
-	github.com/VulpesFerrilata/grpc v0.0.0-20210104100554-e35ac2bc17dd
-	github.com/VulpesFerrilata/library v0.0.0-20210104100350-c1a4a867d38c
+	github.com/VulpesFerrilata/grpc v0.0.0-20210107070918-9c2ee4b9d0af
+	github.com/VulpesFerrilata/library v0.0.0-20210107104520-1e00cecc8cd0
 	github.com/andybalholm/brotli v1.0.1-0.20200619015827-c3da72aa01ed // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/universal-translator v0.17.0
