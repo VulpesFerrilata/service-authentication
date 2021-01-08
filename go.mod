@@ -7,8 +7,9 @@ go 1.14
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 require (
-	github.com/VulpesFerrilata/grpc v0.0.0-20210107070918-9c2ee4b9d0af
-	github.com/VulpesFerrilata/library v0.0.0-20210107104520-1e00cecc8cd0
+	github.com/VulpesFerrilata/go-micro-custom v0.0.0-20210108071325-c08180f3a0a1
+	github.com/VulpesFerrilata/grpc v0.0.0-20210108084505-964ee54318c0
+	github.com/VulpesFerrilata/library v0.0.0-20210108114535-906b7f5cafa7
 	github.com/andybalholm/brotli v1.0.1-0.20200619015827-c3da72aa01ed // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-playground/universal-translator v0.17.0
@@ -29,9 +30,6 @@ require (
 	go.etcd.io/bbolt v1.3.5 // indirect
 	go.uber.org/dig v1.10.0
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
-	golang.org/x/sys v0.0.0-20200808120158-1030fc2bf1d9 // indirect
-	golang.org/x/text v0.3.3 // indirect
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/go-playground/validator.v9 v9.31.0
