@@ -3,9 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/VulpesFerrilata/auth/internal/business_rule_error"
+	"github.com/VulpesFerrilata/auth/internal/app_error/authentication_error"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
-	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/pkg/errors"
 )
 
@@ -35,10 +34,7 @@ func (cs claimService) ValidateAuthenticate(ctx context.Context, userId int, jti
 	}
 
 	if claim.GetJti() != jti {
-		var businessRuleErrors app_error.BusinessRuleErrors
-		loggedInByAnotherDeviceError := business_rule_error.NewLoggedInByAnotherDeviceError()
-		businessRuleErrors = append(businessRuleErrors, loggedInByAnotherDeviceError)
-		return businessRuleErrors
+		return authentication_error.NewLoggedInByAnotherDeviceError()
 	}
 
 	return nil

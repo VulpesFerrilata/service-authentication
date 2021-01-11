@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VulpesFerrilata/auth/internal/business_rule_error"
+	"github.com/VulpesFerrilata/auth/internal/app_error/authentication_error"
 	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
 	"github.com/VulpesFerrilata/library/config"
 	"github.com/dgrijalva/jwt-go"
@@ -79,14 +79,14 @@ func (ts tokenService) decryptToken(ctx context.Context, token string, tokenSett
 		return []byte(tokenSettings.SecretKey), nil
 	})
 	if err != nil {
-		return nil, business_rule_error.NewInvalidTokenError()
+		return nil, authentication_error.NewInvalidTokenError()
 	}
 
 	//validate
 	now := time.Now().Unix()
 	if !standardClaim.VerifyExpiresAt(now, true) {
 		delta := time.Unix(now, 0).Sub(time.Unix(standardClaim.ExpiresAt, 0))
-		return nil, business_rule_error.NewExpiredTokenError(delta)
+		return nil, authentication_error.NewExpiredTokenError(delta)
 	}
 
 	return datamodel.NewClaimFromStandardClaim(standardClaim)
