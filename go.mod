@@ -8,7 +8,7 @@ replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 require (
 	github.com/VulpesFerrilata/go-micro-custom v0.0.0-20210108071325-c08180f3a0a1
-	github.com/VulpesFerrilata/grpc v0.0.0-20210108084505-964ee54318c0
+	github.com/VulpesFerrilata/grpc v0.0.0-20210115081714-127820e3f2d6
 	github.com/VulpesFerrilata/library v0.0.0-20210108114535-906b7f5cafa7
 	github.com/andybalholm/brotli v1.0.1-0.20200619015827-c3da72aa01ed // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible

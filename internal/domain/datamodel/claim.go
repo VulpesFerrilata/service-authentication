@@ -1,35 +1,39 @@
 package datamodel
 
 import (
-	"strconv"
-
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/dgrijalva/jwt-go"
-	uuid "github.com/iris-contrib/go.uuid"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
-func NewClaim(userId int) (*Claim, error) {
+func NewClaim(userId uuid.UUID) (*Claim, error) {
 	claim := new(Claim)
 	claim.userID = userId
 
-	uuid, err := uuid.NewV4()
+	jti, err := uuid.NewRandom()
 	if err != nil {
 		return nil, errors.Wrap(err, "datamodel.NewClaim")
 	}
-	claim.jti = uuid.String()
+	claim.jti = jti
 
 	return claim, nil
 }
 
 func NewClaimFromStandardClaim(standardClaim *jwt.StandardClaims) (*Claim, error) {
 	claim := new(Claim)
-	userId, err := strconv.ParseInt(standardClaim.Subject, 10, 32)
+
+	userId, err := uuid.Parse(standardClaim.Subject)
 	if err != nil {
 		return nil, errors.Wrap(err, "datamodel.NewClaimFromStandardClaim")
 	}
-	claim.userID = int(userId)
-	claim.jti = standardClaim.Id
+	claim.userID = userId
+
+	jti, err := uuid.Parse(standardClaim.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "datamodel.NewClaimFromStandardClaim")
+	}
+	claim.jti = jti
 	return claim, nil
 }
 
@@ -41,29 +45,21 @@ func NewClaimFromClaimModel(claimModel *model.Claim) *Claim {
 }
 
 type Claim struct {
-	userID int
-	jti    string
+	userID uuid.UUID
+	jti    uuid.UUID
 }
 
-func (c Claim) GetUserId() int {
+func (c Claim) GetUserId() uuid.UUID {
 	return c.userID
 }
 
-func (c Claim) GetJti() string {
+func (c Claim) GetJti() uuid.UUID {
 	return c.jti
 }
 
-func (c *Claim) Persist(f func(claimModel *model.Claim) error) error {
+func (c Claim) ToModel() *model.Claim {
 	claimModel := new(model.Claim)
 	claimModel.UserID = c.userID
 	claimModel.Jti = c.jti
-
-	if err := f(claimModel); err != nil {
-		return errors.Wrap(err, "datamodel.Claim.Persist")
-	}
-
-	c.userID = claimModel.UserID
-	c.jti = claimModel.Jti
-
-	return nil
+	return claimModel
 }

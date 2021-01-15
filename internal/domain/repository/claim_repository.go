@@ -7,13 +7,14 @@ import (
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"gopkg.in/go-playground/validator.v9"
 	"gorm.io/gorm"
 )
 
 type ClaimRepository interface {
-	GetByUserId(ctx context.Context, userId int) (*datamodel.Claim, error)
+	GetByUserId(ctx context.Context, userId uuid.UUID) (*datamodel.Claim, error)
 	InsertOrUpdate(ctx context.Context, claim *datamodel.Claim) error
 }
 
@@ -30,7 +31,7 @@ type claimRepository struct {
 	validate              *validator.Validate
 }
 
-func (tr claimRepository) GetByUserId(ctx context.Context, userId int) (*datamodel.Claim, error) {
+func (tr claimRepository) GetByUserId(ctx context.Context, userId uuid.UUID) (*datamodel.Claim, error) {
 	claimModel := new(model.Claim)
 
 	err := tr.transactionMiddleware.Get(ctx).First(claimModel, userId).Error
@@ -41,12 +42,12 @@ func (tr claimRepository) GetByUserId(ctx context.Context, userId int) (*datamod
 }
 
 func (tr claimRepository) InsertOrUpdate(ctx context.Context, claim *datamodel.Claim) error {
-	return claim.Persist(func(claimModel *model.Claim) error {
-		if err := tr.validate.StructCtx(ctx, claimModel); err != nil {
-			return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
-		}
+	claimModel := claim.ToModel()
 
-		err := tr.transactionMiddleware.Get(ctx).Save(claimModel).Error
+	if err := tr.validate.StructCtx(ctx, claimModel); err != nil {
 		return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
-	})
+	}
+
+	err := tr.transactionMiddleware.Get(ctx).Save(claimModel).Error
+	return errors.Wrap(err, "repository.ClaimRepository.InsertOrUpdate")
 }

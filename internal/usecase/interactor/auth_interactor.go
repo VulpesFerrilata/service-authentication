@@ -9,6 +9,7 @@ import (
 	"github.com/VulpesFerrilata/auth/internal/usecase/response"
 	"github.com/VulpesFerrilata/grpc/protoc/user"
 	"github.com/VulpesFerrilata/library/pkg/app_error"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"gopkg.in/go-playground/validator.v9"
 )
@@ -54,7 +55,12 @@ func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.C
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}
 
-	claim, err := datamodel.NewClaim(int(userPb.GetID()))
+	userId, err := uuid.Parse(userPb.GetID())
+	if err != nil {
+		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
+	}
+
+	claim, err := datamodel.NewClaim(userId)
 	if err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
 	}

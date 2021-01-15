@@ -1,9 +1,12 @@
 package model
 
-import "github.com/VulpesFerrilata/library/pkg/model"
+import (
+	"github.com/VulpesFerrilata/library/pkg/model"
+	"github.com/google/uuid"
+)
 
 type Claim struct {
 	model.Model
-	UserID int    `gorm:"primaryKey" validate:"required"`
-	Jti    string `validate:"required"`
+	UserID uuid.UUID `gorm:"type:uuid;primaryKey" validate:"required"`
+	Jti    uuid.UUID `gorm:"type:uuid" validate:"required"`
 }

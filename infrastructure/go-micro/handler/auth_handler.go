@@ -27,7 +27,7 @@ func (ah authHandler) Authenticate(ctx context.Context, tokenRequestPb *auth.Tok
 	if err != nil {
 		return errors.Wrap(err, "handler.AuthHandler.Authenticate")
 	}
-	claimResponsePb.UserID = int64(claimResponse.UserID)
+	claimResponsePb.UserID = claimResponse.UserID
 
 	return nil
 }
