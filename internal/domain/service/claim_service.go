@@ -34,7 +34,7 @@ func (cs claimService) ValidateAuthenticate(ctx context.Context, userId uuid.UUI
 		return errors.Wrap(err, "service.ClaimService.ValidateAuthenticate")
 	}
 
-	if claim.GetJti().String() != jti.String() {
+	if claim.GetJti() != jti {
 		return authentication_error.NewLoggedInByAnotherDeviceError()
 	}
 
