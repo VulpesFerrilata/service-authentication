@@ -3,8 +3,8 @@ package service
 import (
 	"context"
 
-	"github.com/VulpesFerrilata/auth/internal/app_error/authentication_error"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
+	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )

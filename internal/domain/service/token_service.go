@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/VulpesFerrilata/auth/internal/app_error/authentication_error"
 	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
+	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
 	"github.com/VulpesFerrilata/library/config"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
