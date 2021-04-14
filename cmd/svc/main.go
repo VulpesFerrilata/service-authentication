@@ -3,47 +3,66 @@ package main
 import (
 	"database/sql"
 
-	"github.com/VulpesFerrilata/go-micro-custom/server/grpc"
-	log "github.com/micro/go-micro/v2/logger"
-	"github.com/micro/go-micro/v2/server"
+	"github.com/asim/go-micro/v3/server"
+	"github.com/micro/cli/v2"
+	"github.com/pkg/errors"
 
-	"github.com/VulpesFerrilata/auth/infrastructure/container"
+	"github.com/VulpesFerrilata/auth/infrastructure/micro/container"
+	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
 	"github.com/VulpesFerrilata/grpc/protoc/auth"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
-	"github.com/micro/go-micro/v2"
+	"github.com/asim/go-micro/v3"
 )
 
 func main() {
-	container := container.NewContainer()
+	service := micro.NewService(
+		micro.Name("boardgame.auth.svc"),
+		micro.Version("latest"),
+		micro.Flags(
+			flags.DefaultFlags...,
+		),
+	)
+
+	var cliCtx *cli.Context
+	// Initialise service
+	service.Init(
+		micro.Action(func(ctx *cli.Context) error {
+			cliCtx = ctx
+			return nil
+		}),
+	)
+
+	container := container.NewContainer(cliCtx)
 
 	if err := container.Invoke(func(authHandler auth.AuthHandler,
+		recoverMiddleware *middleware.RecoverMiddleware,
 		transactionMiddleware *middleware.TransactionMiddleware,
 		translatorMiddleware *middleware.TranslatorMiddleware,
 		errorHandlerMiddleware *middleware.ErrorHandlerMiddleware) error {
 		// New Service
 		service := micro.NewService(
 			micro.Server(
-				grpc.NewServer(
+				server.NewServer(
+					server.WrapHandler(recoverMiddleware.HandlerWrapper),
 					server.WrapHandler(errorHandlerMiddleware.HandlerWrapper),
-					server.WrapHandler(transactionMiddleware.HandlerWrapperWithTxOptions(&sql.TxOptions{})),
 					server.WrapHandler(translatorMiddleware.HandlerWrapper),
+					server.WrapHandler(transactionMiddleware.HandlerWrapperWithTxOptions(&sql.TxOptions{})),
 				),
 			),
-			micro.Name("boardgame.auth.svc"),
-			micro.Version("latest"),
 		)
-
-		// Initialise service
-		service.Init()
 
 		// Register Handler
 		if err := auth.RegisterAuthHandler(service.Server(), authHandler); err != nil {
-			return err
+			return errors.WithStack(err)
 		}
 
 		// Run service
-		return service.Run()
+		if err := service.Run(); err != nil {
+			return errors.WithStack(err)
+		}
+
+		return nil
 	}); err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 }

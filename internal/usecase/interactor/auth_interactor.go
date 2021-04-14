@@ -3,15 +3,13 @@ package interactor
 import (
 	"context"
 
-	"github.com/VulpesFerrilata/auth/internal/domain/datamodel"
+	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
+	"github.com/VulpesFerrilata/auth/internal/mapper"
 	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/VulpesFerrilata/auth/internal/usecase/response"
-	"github.com/VulpesFerrilata/grpc/protoc/user"
-	"github.com/VulpesFerrilata/library/pkg/app_error"
-	"github.com/google/uuid"
+	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
-	"gopkg.in/go-playground/validator.v9"
 )
 
 type AuthInteractor interface {
@@ -21,109 +19,97 @@ type AuthInteractor interface {
 }
 
 func NewAuthInteractor(validate *validator.Validate,
+	userService service.UserService,
 	claimService service.ClaimService,
-	tokenService service.TokenService,
-	userService user.UserService) AuthInteractor {
+	tokenServiceFactory service.TokenServiceFactory) AuthInteractor {
 	return &authInteractor{
-		validate:     validate,
-		claimService: claimService,
-		tokenService: tokenService,
-		userService:  userService,
+		validate:            validate,
+		claimService:        claimService,
+		tokenServiceFactory: tokenServiceFactory,
+		userService:         userService,
 	}
 }
 
 type authInteractor struct {
-	validate     *validator.Validate
-	claimService service.ClaimService
-	tokenService service.TokenService
-	userService  user.UserService
+	validate            *validator.Validate
+	claimService        service.ClaimService
+	tokenServiceFactory service.TokenServiceFactory
+	userService         service.UserService
 }
 
-func (ai authInteractor) Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error) {
-	if err := ai.validate.StructCtx(ctx, credentialRequest); err != nil {
-		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewValidationError(fieldErrors)
-		}
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
+func (a authInteractor) Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error) {
+	if err := a.validate.StructCtx(ctx, credentialRequest); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	credentialRequestPb := new(user.CredentialRequest)
-	credentialRequestPb.Username = credentialRequest.Username
-	credentialRequestPb.Password = credentialRequest.Password
-	userPb, err := ai.userService.GetUserByCredential(ctx, credentialRequestPb)
+	user, err := a.userService.GetByCredential(ctx, credentialRequest.Username, credentialRequest.Password)
 	if err != nil {
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
+		return nil, errors.WithStack(err)
 	}
 
-	userId, err := uuid.Parse(userPb.GetID())
+	claim, err := model.NewClaim(user.GetId())
 	if err != nil {
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
+		return nil, errors.WithStack(err)
 	}
 
-	claim, err := datamodel.NewClaim(userId)
+	claim, err = a.claimService.Create(ctx, claim)
 	if err != nil {
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
-	}
-
-	if err := ai.claimService.GetClaimRepository().InsertOrUpdate(ctx, claim); err != nil {
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
+		return nil, errors.WithStack(err)
 	}
 
 	tokenResponse := new(response.TokenResponse)
-	accessToken, err := ai.tokenService.EncryptToken(ctx, service.AccessToken, claim)
+	accessStandardClaim := mapper.NewClaimModelMapper(claim).ToStandardClaim()
+	accessToken, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).EncryptToken(ctx, accessStandardClaim)
 	if err != nil {
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
+		return nil, errors.WithStack(err)
 	}
 	tokenResponse.AccessToken = accessToken
 
-	refreshToken, err := ai.tokenService.EncryptToken(ctx, service.RefreshToken, claim)
+	refreshStandardClaim := mapper.NewClaimModelMapper(claim).ToStandardClaim()
+	refreshToken, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).EncryptToken(ctx, refreshStandardClaim)
 	if err != nil {
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Login")
+		return nil, errors.WithStack(err)
 	}
 	tokenResponse.RefreshToken = refreshToken
 
 	return tokenResponse, nil
 }
 
-func (ai authInteractor) Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error) {
-	if err := ai.validate.StructCtx(ctx, tokenRequest); err != nil {
-		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewValidationError(fieldErrors)
-		}
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Authenticate")
+func (a authInteractor) Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error) {
+	if err := a.validate.StructCtx(ctx, tokenRequest); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	claim, err := ai.tokenService.DecryptToken(ctx, service.AccessToken, tokenRequest.Token)
+	refreshStandardClaim, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).DecryptToken(ctx, tokenRequest.Token)
 	if err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Authenticate")
 	}
 
-	if err := ai.claimService.ValidateAuthenticate(ctx, claim.GetUserId(), claim.GetJti()); err != nil {
+	userId
+
+	if err := a.claimService.GetByUserId(ctx, claim.GetUserId(), claim.GetJti()); err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Authenticate")
 	}
 
 	return response.NewClaimResponse(claim), nil
 }
 
-func (ai authInteractor) Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error) {
-	if err := ai.validate.StructCtx(ctx, tokenRequest); err != nil {
-		if fieldErrors, ok := errors.Cause(err).(validator.ValidationErrors); ok {
-			err = app_error.NewValidationError(fieldErrors)
-		}
-		return nil, errors.Wrap(err, "interactor.AuthInteractor.Refresh")
+func (a authInteractor) Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error) {
+	if err := a.validate.StructCtx(ctx, tokenRequest); err != nil {
+		return nil, errors.WithStack(err)
 	}
 
-	claim, err := ai.tokenService.DecryptToken(ctx, service.RefreshToken, tokenRequest.Token)
+	claim, err := a.tokenService.DecryptToken(ctx, service.RefreshToken, tokenRequest.Token)
 	if err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Refresh")
 	}
 
-	if err := ai.claimService.ValidateAuthenticate(ctx, claim.GetUserId(), claim.GetJti()); err != nil {
+	if err := a.claimService.ValidateAuthenticate(ctx, claim.GetUserId(), claim.GetJti()); err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Refresh")
 	}
 
 	tokenResponse := new(response.TokenResponse)
-	accessToken, err := ai.tokenService.EncryptToken(ctx, service.AccessToken, claim)
+	accessToken, err := a.tokenService.EncryptToken(ctx, service.AccessToken, claim)
 	if err != nil {
 		return nil, errors.Wrap(err, "interactor.AuthInteractor.Refresh")
 	}
