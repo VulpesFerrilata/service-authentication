@@ -7,7 +7,7 @@ import (
 	"github.com/micro/cli/v2"
 	"github.com/pkg/errors"
 
-	"github.com/VulpesFerrilata/auth/init"
+	"github.com/VulpesFerrilata/auth/initialize"
 	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
 	"github.com/VulpesFerrilata/grpc/protoc/auth"
 	common_flags "github.com/VulpesFerrilata/library/pkg/micro/flags"
@@ -41,7 +41,7 @@ func main() {
 		}),
 	)
 
-	container := init.InitContainer(cliCtx)
+	container := initialize.InitContainer(cliCtx)
 
 	if err := container.Invoke(func(authHandler auth.AuthHandler,
 		recoverMiddleware *middleware.RecoverMiddleware,

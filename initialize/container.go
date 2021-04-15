@@ -1,4 +1,4 @@
-package init
+package initialize
 
 import (
 	"github.com/VulpesFerrilata/auth/infrastructure/iris/controller"
@@ -10,7 +10,7 @@ import (
 	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
 	"github.com/VulpesFerrilata/grpc/gateway"
-	"github.com/VulpesFerrilata/library/init"
+	"github.com/VulpesFerrilata/library/initialize"
 	common_flags "github.com/VulpesFerrilata/library/pkg/micro/flags"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
 	ut "github.com/go-playground/universal-translator"
@@ -34,16 +34,16 @@ func InitContainer(ctx *cli.Context) *dig.Container {
 	container := dig.New()
 
 	container.Provide(func() (*gorm.DB, error) {
-		db, err := init.InitGorm(sqlDialect, sqlDsn)
+		db, err := initialize.InitGorm(sqlDialect, sqlDsn)
 		return db, errors.WithStack(err)
 	})
 
 	container.Provide(func() (*ut.UniversalTranslator, error) {
-		utrans, err := init.InitTranslator(translationFolderPath)
+		utrans, err := initialize.InitTranslator(translationFolderPath)
 		return utrans, errors.WithStack(err)
 	})
 
-	container.Provide(init.InitValidator)
+	container.Provide(initialize.InitValidator)
 
 	//--Middleware
 	container.Provide(middleware.NewRecoverMiddleware)

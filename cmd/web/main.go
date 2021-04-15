@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/VulpesFerrilata/auth/init"
+	"github.com/VulpesFerrilata/auth/initialize"
 	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
 	common_flags "github.com/VulpesFerrilata/library/pkg/micro/flags"
 	"github.com/asim/go-micro/plugins/server/http/v3"
@@ -40,7 +40,7 @@ func main() {
 		}),
 	)
 
-	container := init.InitContainer(cliCtx)
+	container := initialize.InitContainer(cliCtx)
 
 	if err := container.Invoke(func(app *iris.Application) error {
 		if err := app.Build(); err != nil {
