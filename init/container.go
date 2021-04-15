@@ -1,32 +1,29 @@
-package container
+package init
 
 import (
-	"reflect"
-	"strings"
-
+	"github.com/VulpesFerrilata/auth/infrastructure/iris/controller"
+	"github.com/VulpesFerrilata/auth/infrastructure/iris/router"
+	"github.com/VulpesFerrilata/auth/infrastructure/iris/server"
+	"github.com/VulpesFerrilata/auth/infrastructure/micro/handler"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
 	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
 	"github.com/VulpesFerrilata/grpc/gateway"
+	"github.com/VulpesFerrilata/library/init"
+	common_flags "github.com/VulpesFerrilata/library/pkg/micro/flags"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
-	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
-	"github.com/go-playground/validator/v10"
-	en_translations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/micro/cli/v2"
 	"github.com/pkg/errors"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/sqlite"
-	"gorm.io/gorm"
-
 	"go.uber.org/dig"
+	"gorm.io/gorm"
 )
 
-func NewContainer(ctx *cli.Context) *dig.Container {
-	sqlDialect := flags.GetSqlDialect(ctx)
-	sqlDsn := flags.GetSqlDsn(ctx)
-	translationFolderPath := flags.GetTranslationFolderPath(ctx)
+func InitContainer(ctx *cli.Context) *dig.Container {
+	sqlDialect := common_flags.GetSqlDialect(ctx)
+	sqlDsn := common_flags.GetSqlDsn(ctx)
+	translationFolderPath := common_flags.GetTranslationFolderPath(ctx)
 	accessTokenAlg := flags.GetAccessTokenAlg(ctx)
 	accessTokenSecret := flags.GetAccessTokenSecret(ctx)
 	accessTokenDuration := flags.GetAccessTokenDuration(ctx)
@@ -37,52 +34,16 @@ func NewContainer(ctx *cli.Context) *dig.Container {
 	container := dig.New()
 
 	container.Provide(func() (*gorm.DB, error) {
-		var dialector gorm.Dialector
-		switch strings.ToLower(sqlDialect) {
-		case "mysql":
-			dialector = mysql.Open(sqlDsn)
-		case "sqlite":
-			dialector = sqlite.Open(sqlDsn)
-		default:
-			err := errors.New("invalid sql dialect")
-			return nil, errors.WithStack(err)
-		}
-
-		db, err := gorm.Open(dialector, &gorm.Config{})
+		db, err := init.InitGorm(sqlDialect, sqlDsn)
 		return db, errors.WithStack(err)
 	})
 
 	container.Provide(func() (*ut.UniversalTranslator, error) {
-		en := en.New()
-		utrans := ut.New(en, en)
-
-		if err := utrans.Import(ut.FormatJSON, translationFolderPath); err != nil {
-			return nil, errors.WithStack(err)
-		}
-
-		return utrans, errors.WithStack(utrans.VerifyTranslations())
+		utrans, err := init.InitTranslator(translationFolderPath)
+		return utrans, errors.WithStack(err)
 	})
 
-	container.Provide(func(utrans *ut.UniversalTranslator) (*validator.Validate, error) {
-		v := validator.New()
-		v.RegisterTagNameFunc(func(field reflect.StructField) string {
-			jsonName := strings.SplitN(field.Tag.Get("json"), ",", 2)[0]
-			if jsonName != "-" {
-				return jsonName
-			}
-			return field.Name
-		})
-
-		en := en.New()
-		trans, found := utrans.GetTranslator(en.Locale())
-		if !found {
-			err := errors.Errorf("translator not found: %v", en.Locale())
-			return nil, errors.WithStack(err)
-		}
-
-		err := en_translations.RegisterDefaultTranslations(v, trans)
-		return v, errors.WithStack(err)
-	})
+	container.Provide(init.InitValidator)
 
 	//--Middleware
 	container.Provide(middleware.NewRecoverMiddleware)
@@ -106,6 +67,16 @@ func NewContainer(ctx *cli.Context) *dig.Container {
 	container.Provide(func() gateway.UserGateway {
 		return gateway.NewUserGateway()
 	})
+
+	//--Controller
+	container.Provide(controller.NewAuthController)
+	//--Router
+	container.Provide(router.NewRouter)
+	//--Server
+	container.Provide(server.NewServer)
+
+	//--Grpc
+	container.Provide(handler.NewAuthHandler)
 
 	return container
 }

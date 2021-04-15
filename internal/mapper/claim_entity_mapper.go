@@ -21,7 +21,6 @@ type claimEntityMapper struct {
 
 func (c claimEntityMapper) ToClaimModel() *model.Claim {
 	return model.ToClaim(
-		c.claimEntity.ID,
 		c.claimEntity.UserID,
 		c.claimEntity.Jti,
 		int64(c.claimEntity.Version),

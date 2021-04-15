@@ -42,15 +42,14 @@ func (t tokenService) DecryptToken(ctx context.Context, token string) (*jwt.Stan
 	}
 
 	standardClaim := new(jwt.StandardClaims)
-	_, err := parser.ParseWithClaims(token, standardClaim, func(token *jwt.Token) (interface{}, error) {
+	if _, err := parser.ParseWithClaims(token, standardClaim, func(token *jwt.Token) (interface{}, error) {
 		return []byte(t.secretKey), nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, authentication_error.NewInvalidTokenError()
 	}
 
 	if err := t.validate(ctx, standardClaim); err != nil {
-		return nil, err
+		return nil, errors.WithStack(err)
 	}
 
 	return standardClaim, nil

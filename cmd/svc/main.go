@@ -7,9 +7,10 @@ import (
 	"github.com/micro/cli/v2"
 	"github.com/pkg/errors"
 
-	"github.com/VulpesFerrilata/auth/infrastructure/micro/container"
+	"github.com/VulpesFerrilata/auth/init"
 	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
 	"github.com/VulpesFerrilata/grpc/protoc/auth"
+	common_flags "github.com/VulpesFerrilata/library/pkg/micro/flags"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
 	"github.com/asim/go-micro/v3"
 )
@@ -19,7 +20,15 @@ func main() {
 		micro.Name("boardgame.auth.svc"),
 		micro.Version("latest"),
 		micro.Flags(
-			flags.DefaultFlags...,
+			common_flags.NewSqlDialectFlag(),
+			common_flags.NewSqlDsnFlag(),
+			common_flags.NewTranslationFolderPathFlag(),
+			flags.NewAccessTokenAlgFlag(),
+			flags.NewAccessTokenSecretFlag(),
+			flags.NewAccessTokenDurationFlag(),
+			flags.NewRefreshTokenAlgFlag(),
+			flags.NewRefreshTokenSecretFlag(),
+			flags.NewRefreshTokenDurationFlag(),
 		),
 	)
 
@@ -32,7 +41,7 @@ func main() {
 		}),
 	)
 
-	container := container.NewContainer(cliCtx)
+	container := init.InitContainer(cliCtx)
 
 	if err := container.Invoke(func(authHandler auth.AuthHandler,
 		recoverMiddleware *middleware.RecoverMiddleware,

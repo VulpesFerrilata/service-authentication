@@ -14,11 +14,13 @@ type Router interface {
 }
 
 func NewRouter(authController controller.AuthController,
+	recoverMiddleware *middleware.RecoverMiddleware,
 	transactionMiddleware *middleware.TransactionMiddleware,
 	translatorMiddleware *middleware.TranslatorMiddleware,
 	errorHandlerMiddleware *middleware.ErrorHandlerMiddleware) Router {
 	return &router{
 		authController:         authController,
+		recoverMiddleware:      recoverMiddleware,
 		transactionMiddleware:  transactionMiddleware,
 		translatorMiddleware:   translatorMiddleware,
 		errorHandlerMiddleware: errorHandlerMiddleware,
@@ -27,6 +29,7 @@ func NewRouter(authController controller.AuthController,
 
 type router struct {
 	authController         controller.AuthController
+	recoverMiddleware      *middleware.RecoverMiddleware
 	transactionMiddleware  *middleware.TransactionMiddleware
 	translatorMiddleware   *middleware.TranslatorMiddleware
 	errorHandlerMiddleware *middleware.ErrorHandlerMiddleware
@@ -35,7 +38,7 @@ type router struct {
 func (r router) InitRoutes(app *iris.Application) {
 	apiRoot := app.Party("/api")
 	apiRoot.Use(
-		r.errorHandlerMiddleware.Serve,
+		r.recoverMiddleware.Serve,
 		r.transactionMiddleware.ServeWithTxOptions(&sql.TxOptions{}),
 		r.translatorMiddleware.Serve,
 	)

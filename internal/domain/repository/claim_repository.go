@@ -12,7 +12,7 @@ import (
 )
 
 type SafeClaimRepository interface {
-	IsUserIdExists(ctx context.Context, id uuid.UUID, userId uuid.UUID) (bool, error)
+	IsUserIdExists(ctx context.Context, userId uuid.UUID) (bool, error)
 	GetByUserId(ctx context.Context, userId uuid.UUID) (*entity.Claim, error)
 }
 
@@ -32,10 +32,10 @@ type claimRepository struct {
 	transactionMiddleware *middleware.TransactionMiddleware
 }
 
-func (c claimRepository) IsUserIdExists(ctx context.Context, id uuid.UUID, userId uuid.UUID) (bool, error) {
+func (c claimRepository) IsUserIdExists(ctx context.Context, userId uuid.UUID) (bool, error) {
 	var count int64
 
-	if err := c.transactionMiddleware.Get(ctx).Model(&entity.Claim{}).Where("id <> ? AND user_id = ?", id, userId).Count(&count).Error; err != nil {
+	if err := c.transactionMiddleware.Get(ctx).Model(&entity.Claim{}).Where("user_id = ?", userId).Count(&count).Error; err != nil {
 		return false, errors.WithStack(err)
 	}
 
@@ -62,6 +62,9 @@ func (c claimRepository) Insert(ctx context.Context, claimEntity *entity.Claim) 
 }
 
 func (c claimRepository) Update(ctx context.Context, claimEntity *entity.Claim) error {
-	err := c.transactionMiddleware.Get(ctx).Updates(claimEntity).Error
-	return errors.WithStack(err)
+	tx := c.transactionMiddleware.Get(ctx).Updates(claimEntity)
+	if tx.RowsAffected == 0 {
+		return UpdateStaleObjectErr
+	}
+	return errors.WithStack(tx.Error)
 }

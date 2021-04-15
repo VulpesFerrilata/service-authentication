@@ -24,7 +24,6 @@ type claimModelMapper struct {
 
 func (c claimModelMapper) ToClaimEntity() *entity.Claim {
 	claimEntity := new(entity.Claim)
-	claimEntity.ID = c.claim.GetId()
 	claimEntity.UserID = c.claim.GetUserId()
 	claimEntity.Jti = c.claim.GetJti()
 	claimEntity.Version = gorm_custom.Version(c.claim.GetVersion())
