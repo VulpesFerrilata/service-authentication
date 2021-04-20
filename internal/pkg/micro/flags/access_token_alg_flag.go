@@ -17,5 +17,5 @@ func NewAccessTokenAlgFlag() cli.Flag {
 }
 
 func GetAccessTokenAlg(ctx *cli.Context) string {
-	return ctx.String(accessTokenAlg)
+	return ctx.Generic(accessTokenAlg).(cli.Generic).String()
 }

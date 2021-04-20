@@ -5,7 +5,6 @@ import (
 
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/mapper"
-	"github.com/VulpesFerrilata/grpc/gateway"
 	"github.com/VulpesFerrilata/grpc/protoc/user"
 	"github.com/pkg/errors"
 )
@@ -14,14 +13,14 @@ type UserService interface {
 	GetByCredential(ctx context.Context, username string, password string) (*model.User, error)
 }
 
-func NewUserService(userGateway gateway.UserGateway) UserService {
+func NewUserService(userGateway user.UserService) UserService {
 	return &userService{
 		userGateway: userGateway,
 	}
 }
 
 type userService struct {
-	userGateway gateway.UserGateway
+	userGateway user.UserService
 }
 
 func (u userService) GetByCredential(ctx context.Context, username string, password string) (*model.User, error) {

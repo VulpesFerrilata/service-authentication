@@ -1,63 +1,56 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/asim/go-micro/v3/server"
-	"github.com/micro/cli/v2"
 	"github.com/pkg/errors"
 
 	"github.com/VulpesFerrilata/auth/initialize"
-	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
+	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
+	grpcClient "github.com/VulpesFerrilata/go-micro/plugins/client/grpc"
+	grpcServer "github.com/VulpesFerrilata/go-micro/plugins/server/grpc"
 	"github.com/VulpesFerrilata/grpc/protoc/auth"
-	common_flags "github.com/VulpesFerrilata/library/pkg/micro/flags"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
 	"github.com/asim/go-micro/v3"
 )
 
 func main() {
-	service := micro.NewService(
-		micro.Name("boardgame.auth.svc"),
-		micro.Version("latest"),
-		micro.Flags(
-			common_flags.NewSqlDialectFlag(),
-			common_flags.NewSqlDsnFlag(),
-			common_flags.NewTranslationFolderPathFlag(),
-			flags.NewAccessTokenAlgFlag(),
-			flags.NewAccessTokenSecretFlag(),
-			flags.NewAccessTokenDurationFlag(),
-			flags.NewRefreshTokenAlgFlag(),
-			flags.NewRefreshTokenSecretFlag(),
-			flags.NewRefreshTokenDurationFlag(),
-		),
+	serviceName := micro.Name("boardgame.auth.svc")
+	serviceVersion := micro.Version("latest")
+	serviceServer := micro.Server(
+		grpcServer.NewServer(),
+	)
+	serviceClient := micro.Client(
+		grpcClient.NewClient(),
 	)
 
-	var cliCtx *cli.Context
-	// Initialise service
-	service.Init(
-		micro.Action(func(ctx *cli.Context) error {
-			cliCtx = ctx
-			return nil
-		}),
-	)
+	container := initialize.InitContainer(serviceServer, serviceClient, serviceName, serviceVersion)
 
-	container := initialize.InitContainer(cliCtx)
-
-	if err := container.Invoke(func(authHandler auth.AuthHandler,
+	if err := container.Invoke(func(service micro.Service, authHandler auth.AuthHandler,
 		recoverMiddleware *middleware.RecoverMiddleware,
 		transactionMiddleware *middleware.TransactionMiddleware,
 		translatorMiddleware *middleware.TranslatorMiddleware,
 		errorHandlerMiddleware *middleware.ErrorHandlerMiddleware) error {
-		// New Service
-		service := micro.NewService(
-			micro.Server(
-				server.NewServer(
-					server.WrapHandler(recoverMiddleware.HandlerWrapper),
-					server.WrapHandler(errorHandlerMiddleware.HandlerWrapper),
-					server.WrapHandler(translatorMiddleware.HandlerWrapper),
-					server.WrapHandler(transactionMiddleware.HandlerWrapperWithTxOptions(&sql.TxOptions{})),
-				),
-			),
+
+		service.Server().Init(
+			server.WrapHandler(recoverMiddleware.HandlerWrapper),
+			server.WrapHandler(transactionMiddleware.HandlerWrapperWithTxOptions(&sql.TxOptions{})),
+			server.WrapHandler(translatorMiddleware.HandlerWrapper),
+			server.WrapHandler(func(hf server.HandlerFunc) server.HandlerFunc {
+				wrapper := func(ctx context.Context, request server.Request, response interface{}) error {
+					err := hf(ctx, request, response)
+
+					if authenticationErr, ok := errors.Cause(err).(authentication_error.AuthenticationError); ok {
+						err = authentication_error.NewAuthenticationErrors(authenticationErr)
+					}
+
+					return err
+				}
+
+				return errorHandlerMiddleware.HandlerWrapper(wrapper)
+			}),
 		)
 
 		// Register Handler

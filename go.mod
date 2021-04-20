@@ -7,8 +7,10 @@ go 1.16
 replace google.golang.org/grpc => google.golang.org/grpc v1.26.0
 
 require (
-	github.com/VulpesFerrilata/grpc v0.0.0-20210408081122-0a9eabd471f9
-	github.com/VulpesFerrilata/library v0.0.0-20210415113543-b07a15076d2a
+	github.com/VulpesFerrilata/go-micro/plugins/client/grpc v0.0.0-20210419083936-3c392b08f80a
+	github.com/VulpesFerrilata/go-micro/plugins/server/grpc v0.0.0-20210419083936-3c392b08f80a
+	github.com/VulpesFerrilata/grpc v0.0.0-20210420044648-6ce0dc9248f4
+	github.com/VulpesFerrilata/library v0.0.0-20210420070039-4b15f4fba9b0
 	github.com/andybalholm/brotli v1.0.1-0.20200619015827-c3da72aa01ed // indirect
 	github.com/asim/go-micro/plugins/server/http/v3 v3.0.0-20210408173139-0d57213d3f5c
 	github.com/asim/go-micro/v3 v3.5.0
@@ -31,7 +33,7 @@ require (
 	github.com/stretchr/testify v1.6.1 // indirect
 	go.uber.org/dig v1.10.0
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de // indirect
-	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+	google.golang.org/genproto v0.0.0-20201214200347-8c77b98c765d
 	google.golang.org/grpc v1.27.0
 	google.golang.org/protobuf v1.25.0 // indirect
 	gopkg.in/ini.v1 v1.57.0 // indirect

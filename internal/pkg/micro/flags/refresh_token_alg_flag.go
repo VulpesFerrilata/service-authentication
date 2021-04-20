@@ -17,5 +17,5 @@ func NewRefreshTokenAlgFlag() cli.Flag {
 }
 
 func GetRefreshTokenAlg(ctx *cli.Context) string {
-	return ctx.String(refreshTokenAlg)
+	return ctx.Generic(refreshTokenAlg).(cli.Generic).String()
 }

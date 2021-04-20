@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/VulpesFerrilata/library/pkg/app_error"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/pkg/errors"
 )
@@ -18,11 +19,15 @@ type expiredTokenError struct {
 	delta time.Duration
 }
 
-func (ete expiredTokenError) Error() string {
-	return fmt.Sprintf("token is expired by %v", ete.delta)
+func (e expiredTokenError) Error() string {
+	return fmt.Sprintf("token is expired by %v", e.delta)
 }
 
-func (ete expiredTokenError) Translate(trans ut.Translator) (string, error) {
-	detail, err := trans.T("expired-token-error", ete.delta.String())
+func (e expiredTokenError) Translate(trans ut.Translator) (string, error) {
+	detail, err := trans.T("expired-token-error", e.delta.String())
 	return detail, errors.WithStack(err)
+}
+
+func (e expiredTokenError) ToAuthenticationErrors() app_error.AppError {
+	return NewAuthenticationErrors(e)
 }

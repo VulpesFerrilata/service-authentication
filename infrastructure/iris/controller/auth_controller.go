@@ -22,20 +22,38 @@ type authController struct {
 	authInteractor interactor.AuthInteractor
 }
 
-func (ac authController) PostLogin(ctx iris.Context) interface{} {
+func (a authController) PostLogin(ctx iris.Context) interface{} {
 	credentialRequest := new(request.CredentialRequest)
 
 	if err := ctx.ReadJSON(credentialRequest); err != nil {
-		return errors.Wrap(err, "controller.AuthController.PostLogin")
+		return errors.WithStack(err)
 	}
 
-	tokenResponse, err := ac.authInteractor.Login(ctx.Request().Context(), credentialRequest)
+	tokenResponse, err := a.authInteractor.Login(ctx.Request().Context(), credentialRequest)
 	if err != nil {
-		return errors.Wrap(err, "controller.AuthController.PostLogin")
+		return errors.WithStack(err)
 	}
 
 	return mvc.Response{
-		Code:   iris.StatusCreated,
+		Code:   iris.StatusOK,
+		Object: tokenResponse,
+	}
+}
+
+func (a authController) PostRefresh(ctx iris.Context) interface{} {
+	tokenRequest := new(request.TokenRequest)
+
+	if err := ctx.ReadJSON(tokenRequest); err != nil {
+		return errors.WithStack(err)
+	}
+
+	tokenResponse, err := a.authInteractor.Refresh(ctx.Request().Context(), tokenRequest)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	return mvc.Response{
+		Code:   iris.StatusOK,
 		Object: tokenResponse,
 	}
 }
