@@ -63,8 +63,5 @@ func (c claimRepository) Insert(ctx context.Context, claimEntity *entity.Claim) 
 
 func (c claimRepository) Update(ctx context.Context, claimEntity *entity.Claim) error {
 	tx := c.transactionMiddleware.Get(ctx).Updates(claimEntity)
-	if tx.RowsAffected == 0 {
-		return UpdateStaleObjectErr
-	}
 	return errors.WithStack(tx.Error)
 }

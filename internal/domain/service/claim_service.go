@@ -5,7 +5,6 @@ import (
 
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
-	"github.com/VulpesFerrilata/auth/internal/mapper"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
@@ -17,35 +16,36 @@ type ClaimService interface {
 
 func NewClaimService(claimRepository repository.ClaimRepository) ClaimService {
 	return &claimService{
-		claimRepository: claimRepository,
+		claimRepository:           claimRepository,
+		claimChangeTrackerService: NewClaimChangeTrackerService(),
 	}
 }
 
 type claimService struct {
-	claimRepository repository.ClaimRepository
+	claimRepository           repository.ClaimRepository
+	claimChangeTrackerService ClaimChangeTrackerService
 }
 
 func (c claimService) GetByUserId(ctx context.Context, userId uuid.UUID) (*model.Claim, error) {
 	claimEntity, err := c.claimRepository.GetByUserId(ctx, userId)
 
-	return mapper.NewClaimEntityMapper(claimEntity).ToClaimModel(), errors.WithStack(err)
+	return c.claimChangeTrackerService.GetModel(ctx, claimEntity), errors.WithStack(err)
 }
 
 func (c claimService) Save(ctx context.Context, claim *model.Claim) (*model.Claim, error) {
-	claimEntity := mapper.NewClaimModelMapper(claim).ToClaimEntity()
-	isExists, err := c.claimRepository.IsUserIdExists(ctx, claimEntity.UserID)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-	if isExists {
-		if err := c.claimRepository.Update(ctx, claimEntity); err != nil {
+	claimEntity := c.claimChangeTrackerService.GetEntity(ctx, claim)
+
+	entityState := c.claimChangeTrackerService.GetEntityState(ctx, claim)
+	switch entityState {
+	case New:
+		if err := c.claimRepository.Insert(ctx, claimEntity); err != nil {
 			return nil, errors.WithStack(err)
 		}
-	} else {
-		if err := c.claimRepository.Insert(ctx, claimEntity); err != nil {
+	case Modified:
+		if err := c.claimRepository.Update(ctx, claimEntity); err != nil {
 			return nil, errors.WithStack(err)
 		}
 	}
 
-	return mapper.NewClaimEntityMapper(claimEntity).ToClaimModel(), nil
+	return c.claimChangeTrackerService.GetModel(ctx, claimEntity), nil
 }

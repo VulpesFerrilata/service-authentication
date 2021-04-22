@@ -5,10 +5,11 @@ import (
 
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
-	"github.com/VulpesFerrilata/auth/internal/mapper"
 	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
 	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/VulpesFerrilata/auth/internal/usecase/response"
+	"github.com/VulpesFerrilata/library/pkg/app_error"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -49,9 +50,19 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 		return nil, errors.WithStack(err)
 	}
 
-	claim, err := model.NewClaim(user.GetId())
+	jti, err := uuid.NewRandom()
 	if err != nil {
 		return nil, errors.WithStack(err)
+	}
+
+	claim, err := a.claimService.GetByUserId(ctx, user.GetId())
+	if err != nil && !app_error.IsNotFoundError(errors.Cause(err)) {
+		return nil, errors.WithStack(err)
+	}
+	if app_error.IsNotFoundError(errors.Cause(err)) {
+		claim = model.NewClaim(user.GetId(), jti)
+	} else {
+		claim.SetJti(jti)
 	}
 
 	claim, err = a.claimService.Save(ctx, claim)
@@ -59,16 +70,23 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 		return nil, errors.WithStack(err)
 	}
 
-	standardClaim := mapper.NewClaimModelMapper(claim).ToStandardClaim()
-
 	tokenResponse := new(response.TokenResponse)
-	accessToken, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).EncryptToken(ctx, standardClaim)
+
+	accessTokenStandardClaim := &jwt.StandardClaims{
+		Id:      claim.GetJti().String(),
+		Subject: claim.GetUserId().String(),
+	}
+	accessToken, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).EncryptToken(ctx, accessTokenStandardClaim)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 	tokenResponse.AccessToken = accessToken
 
-	refreshToken, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).EncryptToken(ctx, standardClaim)
+	refreshTokenStandardClaim := &jwt.StandardClaims{
+		Id:      claim.GetJti().String(),
+		Subject: claim.GetUserId().String(),
+	}
+	refreshToken, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).EncryptToken(ctx, refreshTokenStandardClaim)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -82,17 +100,17 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenRequest *request.
 		return nil, errors.WithStack(err)
 	}
 
-	standardClaim, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).DecryptToken(ctx, tokenRequest.Token)
+	accessTokenStandardClaim, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).DecryptToken(ctx, tokenRequest.Token)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	userId, err := uuid.Parse(standardClaim.Subject)
+	userId, err := uuid.Parse(accessTokenStandardClaim.Subject)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	jti, err := uuid.Parse(standardClaim.Id)
+	jti, err := uuid.Parse(accessTokenStandardClaim.Id)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -102,7 +120,7 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenRequest *request.
 		return nil, errors.WithStack(err)
 	}
 
-	if claim.GetJti() != jti {
+	if claim.GetJti().String() == jti.String() {
 		return nil, authentication_error.NewLoggedInByAnotherDeviceError()
 	}
 
@@ -134,7 +152,7 @@ func (a authInteractor) Refresh(ctx context.Context, tokenRequest *request.Token
 		return nil, errors.WithStack(err)
 	}
 
-	if claim.GetJti() != jti {
+	if claim.GetJti().String() == jti.String() {
 		return nil, authentication_error.NewLoggedInByAnotherDeviceError()
 	}
 

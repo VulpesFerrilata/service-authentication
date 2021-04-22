@@ -2,7 +2,7 @@ package model
 
 import "github.com/google/uuid"
 
-func ToUser(id uuid.UUID, username string, displayName string, email string) *User {
+func NewUser(id uuid.UUID, username string, displayName string, email string) *User {
 	user := new(User)
 	user.id = id
 	user.username = username

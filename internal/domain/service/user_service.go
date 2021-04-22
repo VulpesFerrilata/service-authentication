@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
-	"github.com/VulpesFerrilata/auth/internal/mapper"
 	"github.com/VulpesFerrilata/grpc/protoc/user"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -34,6 +34,17 @@ func (u userService) GetByCredential(ctx context.Context, username string, passw
 		return nil, errors.WithStack(err)
 	}
 
-	user, err := mapper.NewUserResponsePbMapper(userResponsePb).ToUserModel()
-	return user, errors.WithStack(err)
+	userId, err := uuid.Parse(userResponsePb.GetID())
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	user := model.NewUser(
+		userId,
+		userResponsePb.GetUsername(),
+		userResponsePb.GetDisplayName(),
+		userResponsePb.GetEmail(),
+	)
+
+	return user, nil
 }
