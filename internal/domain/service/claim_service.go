@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	"github.com/VulpesFerrilata/auth/internal/domain/mapper"
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
 	"github.com/google/uuid"
@@ -16,36 +17,36 @@ type ClaimService interface {
 
 func NewClaimService(claimRepository repository.ClaimRepository) ClaimService {
 	return &claimService{
-		claimRepository:           claimRepository,
-		claimChangeTrackerService: NewClaimChangeTrackerService(),
+		claimRepository: claimRepository,
+		claimMapper:     mapper.NewClaimMapper(),
 	}
 }
 
 type claimService struct {
-	claimRepository           repository.ClaimRepository
-	claimChangeTrackerService ClaimChangeTrackerService
+	claimRepository repository.ClaimRepository
+	claimMapper     mapper.ClaimMapper
 }
 
 func (c claimService) GetByUserId(ctx context.Context, userId uuid.UUID) (*model.Claim, error) {
 	claimEntity, err := c.claimRepository.GetByUserId(ctx, userId)
 
-	return c.claimChangeTrackerService.GetModel(ctx, claimEntity), errors.WithStack(err)
+	return c.claimMapper.GetModel(ctx, claimEntity), errors.WithStack(err)
 }
 
 func (c claimService) Save(ctx context.Context, claim *model.Claim) (*model.Claim, error) {
-	claimEntity := c.claimChangeTrackerService.GetEntity(ctx, claim)
+	claimEntity := c.claimMapper.GetEntity(ctx, claim)
 
-	entityState := c.claimChangeTrackerService.GetEntityState(ctx, claim)
-	switch entityState {
-	case New:
+	modelState := c.claimMapper.GetModelState(ctx, claim)
+	switch modelState {
+	case mapper.New:
 		if err := c.claimRepository.Insert(ctx, claimEntity); err != nil {
 			return nil, errors.WithStack(err)
 		}
-	case Modified:
+	case mapper.Modified:
 		if err := c.claimRepository.Update(ctx, claimEntity); err != nil {
 			return nil, errors.WithStack(err)
 		}
 	}
 
-	return c.claimChangeTrackerService.GetModel(ctx, claimEntity), nil
+	return c.claimMapper.GetModel(ctx, claimEntity), nil
 }
