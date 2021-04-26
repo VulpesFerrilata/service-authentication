@@ -12,7 +12,6 @@ import (
 )
 
 type SafeClaimRepository interface {
-	IsUserIdExists(ctx context.Context, userId uuid.UUID) (bool, error)
 	GetByUserId(ctx context.Context, userId uuid.UUID) (*entity.Claim, error)
 }
 
@@ -32,26 +31,12 @@ type claimRepository struct {
 	transactionMiddleware *middleware.TransactionMiddleware
 }
 
-func (c claimRepository) IsUserIdExists(ctx context.Context, userId uuid.UUID) (bool, error) {
-	var count int64
-
-	if err := c.transactionMiddleware.Get(ctx).Model(&entity.Claim{}).Where("user_id = ?", userId).Count(&count).Error; err != nil {
-		return false, errors.WithStack(err)
-	}
-
-	if count != 0 {
-		return true, nil
-	}
-
-	return false, nil
-}
-
 func (c claimRepository) GetByUserId(ctx context.Context, userId uuid.UUID) (*entity.Claim, error) {
 	claimEntity := new(entity.Claim)
 
 	err := c.transactionMiddleware.Get(ctx).Where("user_id = ?", userId).First(claimEntity).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = app_error.NewNotFoundError("claim")
+		err = app_error.NewRecordNotFoundError("claim")
 	}
 	return claimEntity, errors.WithStack(err)
 }
@@ -62,6 +47,6 @@ func (c claimRepository) Insert(ctx context.Context, claimEntity *entity.Claim) 
 }
 
 func (c claimRepository) Update(ctx context.Context, claimEntity *entity.Claim) error {
-	tx := c.transactionMiddleware.Get(ctx).Updates(claimEntity)
-	return errors.WithStack(tx.Error)
+	err := c.transactionMiddleware.Get(ctx).Updates(claimEntity).Error
+	return errors.WithStack(err)
 }

@@ -9,5 +9,5 @@ func NewClaimResponse(claim *model.Claim) *ClaimResponse {
 }
 
 type ClaimResponse struct {
-	UserID string `json:"userId"`
+	UserID string `json:"user_id"`
 }

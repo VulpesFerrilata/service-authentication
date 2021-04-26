@@ -56,10 +56,10 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 	}
 
 	claim, err := a.claimService.GetByUserId(ctx, user.GetId())
-	if err != nil && !app_error.IsNotFoundError(errors.Cause(err)) {
+	if err != nil && !app_error.IsRecordNotFoundError(errors.Cause(err)) {
 		return nil, errors.WithStack(err)
 	}
-	if app_error.IsNotFoundError(errors.Cause(err)) {
+	if app_error.IsRecordNotFoundError(errors.Cause(err)) {
 		claim = model.NewClaim(user.GetId(), jti)
 	} else {
 		claim.SetJti(jti)
