@@ -12,7 +12,7 @@ import (
 )
 
 type SafeClaimRepository interface {
-	GetByUserId(ctx context.Context, userId uuid.UUID) (*entity.Claim, error)
+	GetById(ctx context.Context, id uuid.UUID) (*entity.Claim, error)
 }
 
 type ClaimRepository interface {
@@ -31,10 +31,10 @@ type claimRepository struct {
 	transactionMiddleware *middleware.TransactionMiddleware
 }
 
-func (c claimRepository) GetByUserId(ctx context.Context, userId uuid.UUID) (*entity.Claim, error) {
+func (c claimRepository) GetById(ctx context.Context, id uuid.UUID) (*entity.Claim, error) {
 	claimEntity := new(entity.Claim)
 
-	err := c.transactionMiddleware.Get(ctx).Where("user_id = ?", userId).First(claimEntity).Error
+	err := c.transactionMiddleware.Get(ctx).First(claimEntity, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		err = app_error.NewRecordNotFoundError("claim")
 	}

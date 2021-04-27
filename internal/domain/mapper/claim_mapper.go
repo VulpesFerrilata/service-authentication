@@ -45,7 +45,7 @@ func (c *claimMapper) GetModelState(ctx context.Context, claim *model.Claim) mod
 
 func (c *claimMapper) GetModel(ctx context.Context, claimEntity *entity.Claim) *model.Claim {
 	claim := model.NewClaim(
-		claimEntity.UserID,
+		claimEntity.ID,
 		claimEntity.Jti,
 	)
 
@@ -65,7 +65,7 @@ func (c *claimMapper) GetModel(ctx context.Context, claimEntity *entity.Claim) *
 
 func (c *claimMapper) GetEntity(ctx context.Context, claim *model.Claim) *entity.Claim {
 	newClaimEntity := new(entity.Claim)
-	newClaimEntity.UserID = claim.GetUserId()
+	newClaimEntity.ID = claim.GetId()
 	newClaimEntity.Jti = claim.GetJti()
 
 	c.claimMapLock.RLock()

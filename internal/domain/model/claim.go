@@ -4,20 +4,20 @@ import (
 	"github.com/google/uuid"
 )
 
-func NewClaim(userId uuid.UUID, jti uuid.UUID) *Claim {
+func NewClaim(id uuid.UUID, jti uuid.UUID) *Claim {
 	claim := new(Claim)
-	claim.userID = userId
+	claim.id = id
 	claim.jti = jti
 	return claim
 }
 
 type Claim struct {
-	userID uuid.UUID
-	jti    uuid.UUID
+	id  uuid.UUID
+	jti uuid.UUID
 }
 
-func (c Claim) GetUserId() uuid.UUID {
-	return c.userID
+func (c Claim) GetId() uuid.UUID {
+	return c.id
 }
 
 func (c Claim) GetJti() uuid.UUID {

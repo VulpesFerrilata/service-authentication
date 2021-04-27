@@ -11,7 +11,7 @@ import (
 )
 
 type ClaimService interface {
-	GetByUserId(ctx context.Context, userId uuid.UUID) (*model.Claim, error)
+	GetById(ctx context.Context, id uuid.UUID) (*model.Claim, error)
 	Save(ctx context.Context, claim *model.Claim) (*model.Claim, error)
 }
 
@@ -27,8 +27,8 @@ type claimService struct {
 	claimMapper     mapper.ClaimMapper
 }
 
-func (c claimService) GetByUserId(ctx context.Context, userId uuid.UUID) (*model.Claim, error) {
-	claimEntity, err := c.claimRepository.GetByUserId(ctx, userId)
+func (c claimService) GetById(ctx context.Context, id uuid.UUID) (*model.Claim, error) {
+	claimEntity, err := c.claimRepository.GetById(ctx, id)
 
 	return c.claimMapper.GetModel(ctx, claimEntity), errors.WithStack(err)
 }

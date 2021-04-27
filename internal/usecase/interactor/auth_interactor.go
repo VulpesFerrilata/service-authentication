@@ -13,31 +13,58 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type AuthInteractor interface {
+	CreateUserCredential(ctx context.Context, userCredentialRequest *request.UserCredentialRequest) error
 	Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error)
 	Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error)
 	Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error)
 }
 
 func NewAuthInteractor(validate *validator.Validate,
-	userService service.UserService,
+	userCredentialService service.UserCredentialService,
 	claimService service.ClaimService,
 	tokenServiceFactory service.TokenServiceFactory) AuthInteractor {
 	return &authInteractor{
-		validate:            validate,
-		claimService:        claimService,
-		tokenServiceFactory: tokenServiceFactory,
-		userService:         userService,
+		validate:              validate,
+		userCredentialService: userCredentialService,
+		claimService:          claimService,
+		tokenServiceFactory:   tokenServiceFactory,
 	}
 }
 
 type authInteractor struct {
-	validate            *validator.Validate
-	claimService        service.ClaimService
-	tokenServiceFactory service.TokenServiceFactory
-	userService         service.UserService
+	validate              *validator.Validate
+	userCredentialService service.UserCredentialService
+	claimService          service.ClaimService
+	tokenServiceFactory   service.TokenServiceFactory
+}
+
+func (a authInteractor) CreateUserCredential(ctx context.Context, userCredentialRequest *request.UserCredentialRequest) error {
+	if err := a.validate.StructCtx(ctx, userCredentialRequest); err != nil {
+		return errors.WithStack(err)
+	}
+
+	id, err := uuid.Parse(userCredentialRequest.ID)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	hashPassword, err := bcrypt.GenerateFromPassword([]byte(userCredentialRequest.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	userCredential := model.NewUserCredential(
+		id,
+		userCredentialRequest.Username,
+		hashPassword,
+	)
+
+	_, err = a.userCredentialService.Save(ctx, userCredential)
+	return errors.WithStack(err)
 }
 
 func (a authInteractor) Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error) {
@@ -45,7 +72,7 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 		return nil, errors.WithStack(err)
 	}
 
-	user, err := a.userService.GetByCredential(ctx, credentialRequest.Username, credentialRequest.Password)
+	userCredential, err := a.userCredentialService.GetByUsername(ctx, credentialRequest.Username)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -55,12 +82,12 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 		return nil, errors.WithStack(err)
 	}
 
-	claim, err := a.claimService.GetByUserId(ctx, user.GetId())
+	claim, err := a.claimService.GetById(ctx, userCredential.GetId())
 	if err != nil && !app_error.IsRecordNotFoundError(errors.Cause(err)) {
 		return nil, errors.WithStack(err)
 	}
 	if app_error.IsRecordNotFoundError(errors.Cause(err)) {
-		claim = model.NewClaim(user.GetId(), jti)
+		claim = model.NewClaim(userCredential.GetId(), jti)
 	} else {
 		claim.SetJti(jti)
 	}
@@ -74,7 +101,7 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 
 	accessTokenStandardClaim := &jwt.StandardClaims{
 		Id:      claim.GetJti().String(),
-		Subject: claim.GetUserId().String(),
+		Subject: claim.GetId().String(),
 	}
 	accessToken, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).EncryptToken(ctx, accessTokenStandardClaim)
 	if err != nil {
@@ -84,7 +111,7 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 
 	refreshTokenStandardClaim := &jwt.StandardClaims{
 		Id:      claim.GetJti().String(),
-		Subject: claim.GetUserId().String(),
+		Subject: claim.GetId().String(),
 	}
 	refreshToken, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).EncryptToken(ctx, refreshTokenStandardClaim)
 	if err != nil {
@@ -105,7 +132,7 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenRequest *request.
 		return nil, errors.WithStack(err)
 	}
 
-	userId, err := uuid.Parse(accessTokenStandardClaim.Subject)
+	id, err := uuid.Parse(accessTokenStandardClaim.Subject)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -115,8 +142,11 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenRequest *request.
 		return nil, errors.WithStack(err)
 	}
 
-	claim, err := a.claimService.GetByUserId(ctx, userId)
+	claim, err := a.claimService.GetById(ctx, id)
 	if err != nil {
+		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
+			return nil, authentication_error.NewAuthenticationRevokedError()
+		}
 		return nil, errors.WithStack(err)
 	}
 
@@ -147,8 +177,11 @@ func (a authInteractor) Refresh(ctx context.Context, tokenRequest *request.Token
 		return nil, errors.WithStack(err)
 	}
 
-	claim, err := a.claimService.GetByUserId(ctx, userId)
+	claim, err := a.claimService.GetById(ctx, userId)
 	if err != nil {
+		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
+			return nil, authentication_error.NewAuthenticationRevokedError()
+		}
 		return nil, errors.WithStack(err)
 	}
 

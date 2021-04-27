@@ -81,7 +81,6 @@ func InitContainer(opts ...micro.Option) *dig.Container {
 	//--Repositories
 	container.Provide(repository.NewClaimRepository)
 	//--Services
-	container.Provide(service.NewUserService)
 	container.Provide(service.NewClaimService)
 	container.Provide(func(ctx *cli.Context) service.TokenServiceFactory {
 		accessTokenAlg := flags.GetAccessTokenAlg(ctx)
