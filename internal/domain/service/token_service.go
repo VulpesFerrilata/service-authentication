@@ -4,7 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
+	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/detail_error"
+	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/pkg/errors"
 )
@@ -36,6 +37,8 @@ func (t tokenService) EncryptToken(ctx context.Context, standardClaim *jwt.Stand
 }
 
 func (t tokenService) DecryptToken(ctx context.Context, token string) (*jwt.StandardClaims, error) {
+	authenticationErrs := app_error.NewAuthenticationErrors()
+
 	parser := &jwt.Parser{
 		SkipClaimsValidation: true,
 		ValidMethods:         []string{t.alg},
@@ -45,7 +48,9 @@ func (t tokenService) DecryptToken(ctx context.Context, token string) (*jwt.Stan
 	if _, err := parser.ParseWithClaims(token, standardClaim, func(token *jwt.Token) (interface{}, error) {
 		return []byte(t.secretKey), nil
 	}); err != nil {
-		return nil, authentication_error.NewInvalidTokenError()
+		detailErr := detail_error.NewTokenInvalidError()
+		authenticationErrs.AddDetailError(detailErr)
+		return nil, authenticationErrs
 	}
 
 	if err := t.validate(ctx, standardClaim); err != nil {
@@ -56,10 +61,14 @@ func (t tokenService) DecryptToken(ctx context.Context, token string) (*jwt.Stan
 }
 
 func (t tokenService) validate(ctx context.Context, standardClaim *jwt.StandardClaims) error {
+	authenticationErrs := app_error.NewAuthenticationErrors()
+
 	now := time.Now().Unix()
 	if !standardClaim.VerifyExpiresAt(now, true) {
 		delta := time.Unix(now, 0).Sub(time.Unix(standardClaim.ExpiresAt, 0))
-		return authentication_error.NewExpiredTokenError(delta)
+		detailErr := detail_error.NewTokenExpiredError(delta)
+		authenticationErrs.AddDetailError(detailErr)
+		return authenticationErrs
 	}
 
 	return nil

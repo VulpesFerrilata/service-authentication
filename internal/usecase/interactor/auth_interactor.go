@@ -6,8 +6,8 @@ import (
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
 	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
-	"github.com/VulpesFerrilata/auth/internal/usecase/request"
-	"github.com/VulpesFerrilata/auth/internal/usecase/response"
+	"github.com/VulpesFerrilata/auth/internal/usecase/input"
+	"github.com/VulpesFerrilata/auth/internal/usecase/output"
 	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-playground/validator/v10"
@@ -17,10 +17,10 @@ import (
 )
 
 type AuthInteractor interface {
-	CreateUserCredential(ctx context.Context, userCredentialRequest *request.UserCredentialRequest) error
-	Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error)
-	Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error)
-	Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error)
+	CreateUserCredential(ctx context.Context, userCredentialInput *input.UserCredentialInput) (*output.UserCredentialOutput, error)
+	Login(ctx context.Context, credentialInput *input.CredentialInput) (*output.TokenOutput, error)
+	Authenticate(ctx context.Context, tokenInput *input.TokenInput) (*output.ClaimOutput, error)
+	Refresh(ctx context.Context, tokenInput *input.TokenInput) (*output.TokenOutput, error)
 }
 
 func NewAuthInteractor(validate *validator.Validate,
@@ -42,38 +42,49 @@ type authInteractor struct {
 	tokenServiceFactory   service.TokenServiceFactory
 }
 
-func (a authInteractor) CreateUserCredential(ctx context.Context, userCredentialRequest *request.UserCredentialRequest) error {
-	if err := a.validate.StructCtx(ctx, userCredentialRequest); err != nil {
-		return errors.WithStack(err)
-	}
-
-	id, err := uuid.Parse(userCredentialRequest.ID)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	hashPassword, err := bcrypt.GenerateFromPassword([]byte(userCredentialRequest.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-
-	userCredential := model.NewUserCredential(
-		id,
-		userCredentialRequest.Username,
-		hashPassword,
-	)
-
-	_, err = a.userCredentialService.Save(ctx, userCredential)
-	return errors.WithStack(err)
-}
-
-func (a authInteractor) Login(ctx context.Context, credentialRequest *request.CredentialRequest) (*response.TokenResponse, error) {
-	if err := a.validate.StructCtx(ctx, credentialRequest); err != nil {
+func (a authInteractor) CreateUserCredential(ctx context.Context, userCredentialInput *input.UserCredentialInput) (*output.UserCredentialOutput, error) {
+	if err := a.validate.StructCtx(ctx, userCredentialInput); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	userCredential, err := a.userCredentialService.GetByUsername(ctx, credentialRequest.Username)
+	userId, err := uuid.Parse(userCredentialInput.ID)
 	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	hashPassword, err := bcrypt.GenerateFromPassword([]byte(userCredentialInput.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	userCredential, err := a.userCredentialService.NewUserCredential(ctx, userId, userCredentialInput.Username, hashPassword)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	userCredential, err = a.userCredentialService.Save(ctx, userCredential)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	userCredentialOutput := &output.UserCredentialOutput{
+		ID:       userCredential.GetId().String(),
+		Username: userCredential.GetUsername(),
+	}
+	return userCredentialOutput, nil
+}
+
+func (a authInteractor) Login(ctx context.Context, credentialInput *input.CredentialInput) (*output.TokenOutput, error) {
+	if err := a.validate.StructCtx(ctx, credentialInput); err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	userCredential, err := a.userCredentialService.GetByUsername(ctx, credentialInput.Username)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	if err := bcrypt.CompareHashAndPassword(userCredential.GetHashPassword(), []byte(credentialInput.Password)); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
@@ -97,37 +108,37 @@ func (a authInteractor) Login(ctx context.Context, credentialRequest *request.Cr
 		return nil, errors.WithStack(err)
 	}
 
-	tokenResponse := new(response.TokenResponse)
+	tokenOutput := new(output.TokenOutput)
 
 	accessTokenStandardClaim := &jwt.StandardClaims{
 		Id:      claim.GetJti().String(),
-		Subject: claim.GetId().String(),
+		Subject: claim.GetUserID().String(),
 	}
 	accessToken, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).EncryptToken(ctx, accessTokenStandardClaim)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	tokenResponse.AccessToken = accessToken
+	tokenOutput.AccessToken = accessToken
 
 	refreshTokenStandardClaim := &jwt.StandardClaims{
 		Id:      claim.GetJti().String(),
-		Subject: claim.GetId().String(),
+		Subject: claim.GetUserID().String(),
 	}
 	refreshToken, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).EncryptToken(ctx, refreshTokenStandardClaim)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	tokenResponse.RefreshToken = refreshToken
+	tokenOutput.RefreshToken = refreshToken
 
-	return tokenResponse, nil
+	return tokenOutput, nil
 }
 
-func (a authInteractor) Authenticate(ctx context.Context, tokenRequest *request.TokenRequest) (*response.ClaimResponse, error) {
-	if err := a.validate.StructCtx(ctx, tokenRequest); err != nil {
+func (a authInteractor) Authenticate(ctx context.Context, tokenInput *input.TokenInput) (*output.ClaimOutput, error) {
+	if err := a.validate.StructCtx(ctx, tokenInput); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	accessTokenStandardClaim, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).DecryptToken(ctx, tokenRequest.Token)
+	accessTokenStandardClaim, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).DecryptToken(ctx, tokenInput.Token)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -154,15 +165,18 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenRequest *request.
 		return nil, authentication_error.NewLoggedInByAnotherDeviceError()
 	}
 
-	return response.NewClaimResponse(claim), nil
+	claimOutput := &output.ClaimOutput{
+		UserID: claim.GetUserID().String(),
+	}
+	return claimOutput, nil
 }
 
-func (a authInteractor) Refresh(ctx context.Context, tokenRequest *request.TokenRequest) (*response.TokenResponse, error) {
-	if err := a.validate.StructCtx(ctx, tokenRequest); err != nil {
+func (a authInteractor) Refresh(ctx context.Context, tokenInput *input.TokenInput) (*output.TokenOutput, error) {
+	if err := a.validate.StructCtx(ctx, tokenInput); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
-	standardClaim, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).DecryptToken(ctx, tokenRequest.Token)
+	standardClaim, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).DecryptToken(ctx, tokenInput.Token)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -189,12 +203,12 @@ func (a authInteractor) Refresh(ctx context.Context, tokenRequest *request.Token
 		return nil, authentication_error.NewLoggedInByAnotherDeviceError()
 	}
 
-	tokenResponse := new(response.TokenResponse)
+	tokenOutput := new(output.TokenOutput)
 	accessToken, err := a.tokenServiceFactory.GetTokenService(service.AccessToken).EncryptToken(ctx, standardClaim)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	tokenResponse.AccessToken = accessToken
+	tokenOutput.AccessToken = accessToken
 
-	return tokenResponse, nil
+	return tokenOutput, nil
 }

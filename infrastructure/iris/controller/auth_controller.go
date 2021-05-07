@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"github.com/VulpesFerrilata/auth/infrastructure/iris/request"
+	"github.com/VulpesFerrilata/auth/infrastructure/iris/response"
+	"github.com/VulpesFerrilata/auth/internal/usecase/input"
 	"github.com/VulpesFerrilata/auth/internal/usecase/interactor"
-	"github.com/VulpesFerrilata/auth/internal/usecase/request"
 	"github.com/kataras/iris/v12"
 	"github.com/kataras/iris/v12/mvc"
 	"github.com/pkg/errors"
@@ -29,11 +31,20 @@ func (a authController) PostLogin(ctx iris.Context) interface{} {
 		return errors.WithStack(err)
 	}
 
-	tokenResponse, err := a.authInteractor.Login(ctx.Request().Context(), credentialRequest)
+	credentialInput := &input.CredentialInput{
+		Username: credentialRequest.Username,
+		Password: credentialRequest.Password,
+	}
+
+	tokenOutput, err := a.authInteractor.Login(ctx.Request().Context(), credentialInput)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
+	tokenResponse := &response.TokenResponse{
+		AccessToken:  tokenOutput.AccessToken,
+		RefreshToken: tokenOutput.RefreshToken,
+	}
 	return mvc.Response{
 		Code:   iris.StatusOK,
 		Object: tokenResponse,
@@ -47,11 +58,19 @@ func (a authController) PostRefresh(ctx iris.Context) interface{} {
 		return errors.WithStack(err)
 	}
 
-	tokenResponse, err := a.authInteractor.Refresh(ctx.Request().Context(), tokenRequest)
+	tokenInput := &input.TokenInput{
+		Token: tokenRequest.Token,
+	}
+
+	tokenOutput, err := a.authInteractor.Refresh(ctx.Request().Context(), tokenInput)
 	if err != nil {
 		return errors.WithStack(err)
 	}
 
+	tokenResponse := &response.TokenResponse{
+		AccessToken:  tokenOutput.AccessToken,
+		RefreshToken: tokenOutput.RefreshToken,
+	}
 	return mvc.Response{
 		Code:   iris.StatusOK,
 		Object: tokenResponse,

@@ -6,6 +6,7 @@ import (
 )
 
 type Claim struct {
-	gorm_custom.Model
-	Jti uuid.UUID
+	UserID uuid.UUID `gorm:"primaryKey"`
+	Jti    uuid.UUID
+	gorm_custom.Version
 }

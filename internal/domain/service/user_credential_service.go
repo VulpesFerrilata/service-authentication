@@ -6,10 +6,12 @@ import (
 	"github.com/VulpesFerrilata/auth/internal/domain/mapper"
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
 
 type UserCredentialService interface {
+	NewUserCredential(ctx context.Context, id uuid.UUID, username string, hashPassword []byte) (*model.UserCredential, error)
 	GetByUsername(ctx context.Context, username string) (*model.UserCredential, error)
 	Save(ctx context.Context, userCredential *model.UserCredential) (*model.UserCredential, error)
 }
@@ -24,6 +26,11 @@ func NewUserCredentialService(userCredentialRepository repository.UserCredential
 type userCredentialService struct {
 	userCredentialRepository repository.UserCredentialRepository
 	userCredentialMapper     mapper.UserCredentialMapper
+}
+
+func (c userCredentialService) NewUserCredential(ctx context.Context, id uuid.UUID, username string, hashPassword []byte) (*model.UserCredential, error) {
+	userCredential := model.NewUserCredential(id, username, hashPassword)
+	return userCredential, nil
 }
 
 func (c userCredentialService) GetByUsername(ctx context.Context, username string) (*model.UserCredential, error) {
