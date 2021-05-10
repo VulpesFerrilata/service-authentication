@@ -11,8 +11,10 @@ import (
 )
 
 type ClaimService interface {
+	NewClaim(ctx context.Context, id uuid.UUID, jti uuid.UUID) (*model.Claim, error)
 	GetById(ctx context.Context, id uuid.UUID) (*model.Claim, error)
 	Save(ctx context.Context, claim *model.Claim) (*model.Claim, error)
+	Delete(ctx context.Context, claim *model.Claim) error
 }
 
 func NewClaimService(claimRepository repository.ClaimRepository) ClaimService {
@@ -27,9 +29,13 @@ type claimService struct {
 	claimMapper     mapper.ClaimMapper
 }
 
+func (c claimService) NewClaim(ctx context.Context, id uuid.UUID, jti uuid.UUID) (*model.Claim, error) {
+	claim := model.NewClaim(id, jti)
+	return claim, nil
+}
+
 func (c claimService) GetById(ctx context.Context, id uuid.UUID) (*model.Claim, error) {
 	claimEntity, err := c.claimRepository.GetById(ctx, id)
-
 	return c.claimMapper.GetModel(ctx, claimEntity), errors.WithStack(err)
 }
 
@@ -49,4 +55,10 @@ func (c claimService) Save(ctx context.Context, claim *model.Claim) (*model.Clai
 	}
 
 	return c.claimMapper.GetModel(ctx, claimEntity), nil
+}
+
+func (c claimService) Delete(ctx context.Context, claim *model.Claim) error {
+	claimEntity := c.claimMapper.GetEntity(ctx, claim)
+	err := c.claimRepository.Delete(ctx, claimEntity)
+	return errors.WithStack(err)
 }

@@ -44,6 +44,10 @@ func (c *claimMapper) GetModelState(ctx context.Context, claim *model.Claim) mod
 }
 
 func (c *claimMapper) GetModel(ctx context.Context, claimEntity *entity.Claim) *model.Claim {
+	if claimEntity == nil {
+		return nil
+	}
+
 	claim := model.NewClaim(
 		claimEntity.UserID,
 		claimEntity.Jti,

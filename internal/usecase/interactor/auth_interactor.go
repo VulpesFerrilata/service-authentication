@@ -3,9 +3,8 @@ package interactor
 import (
 	"context"
 
-	"github.com/VulpesFerrilata/auth/internal/domain/model"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
-	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
+	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/detail_error"
 	"github.com/VulpesFerrilata/auth/internal/usecase/input"
 	"github.com/VulpesFerrilata/auth/internal/usecase/output"
 	"github.com/VulpesFerrilata/library/pkg/app_error"
@@ -21,6 +20,7 @@ type AuthInteractor interface {
 	Login(ctx context.Context, credentialInput *input.CredentialInput) (*output.TokenOutput, error)
 	Authenticate(ctx context.Context, tokenInput *input.TokenInput) (*output.ClaimOutput, error)
 	Refresh(ctx context.Context, tokenInput *input.TokenInput) (*output.TokenOutput, error)
+	Revoke(ctx context.Context, tokenInput *input.TokenInput) error
 }
 
 func NewAuthInteractor(validate *validator.Validate,
@@ -75,13 +75,17 @@ func (a authInteractor) CreateUserCredential(ctx context.Context, userCredential
 }
 
 func (a authInteractor) Login(ctx context.Context, credentialInput *input.CredentialInput) (*output.TokenOutput, error) {
+	authenticationErrs := app_error.NewAuthenticationErrors()
+
 	if err := a.validate.StructCtx(ctx, credentialInput); err != nil {
 		return nil, errors.WithStack(err)
 	}
 
 	userCredential, err := a.userCredentialService.GetByUsername(ctx, credentialInput.Username)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		detailErr := detail_error.NewInvalidPasswordError()
+		authenticationErrs.AddDetailError(detailErr)
+		return nil, authenticationErrs
 	}
 
 	if err := bcrypt.CompareHashAndPassword(userCredential.GetHashPassword(), []byte(credentialInput.Password)); err != nil {
@@ -94,14 +98,16 @@ func (a authInteractor) Login(ctx context.Context, credentialInput *input.Creden
 	}
 
 	claim, err := a.claimService.GetById(ctx, userCredential.GetId())
-	if err != nil && !app_error.IsRecordNotFoundError(errors.Cause(err)) {
+	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	if app_error.IsRecordNotFoundError(errors.Cause(err)) {
-		claim = model.NewClaim(userCredential.GetId(), jti)
-	} else {
-		claim.SetJti(jti)
+	if claim == nil {
+		claim, err = a.claimService.NewClaim(ctx, userCredential.GetId(), jti)
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
 	}
+	claim.SetJti(jti)
 
 	claim, err = a.claimService.Save(ctx, claim)
 	if err != nil {
@@ -134,6 +140,8 @@ func (a authInteractor) Login(ctx context.Context, credentialInput *input.Creden
 }
 
 func (a authInteractor) Authenticate(ctx context.Context, tokenInput *input.TokenInput) (*output.ClaimOutput, error) {
+	authenticationErrors := app_error.NewAuthenticationErrors()
+
 	if err := a.validate.StructCtx(ctx, tokenInput); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -156,13 +164,17 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenInput *input.Toke
 	claim, err := a.claimService.GetById(ctx, id)
 	if err != nil {
 		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
-			return nil, authentication_error.NewAuthenticationRevokedError()
+			detailErr := detail_error.NewTokenRevokedError()
+			authenticationErrors.AddDetailError(detailErr)
+			return nil, authenticationErrors
 		}
 		return nil, errors.WithStack(err)
 	}
 
 	if claim.GetJti().String() == jti.String() {
-		return nil, authentication_error.NewLoggedInByAnotherDeviceError()
+		detailErr := detail_error.NewTokenRevokedError()
+		authenticationErrors.AddDetailError(detailErr)
+		return nil, authenticationErrors
 	}
 
 	claimOutput := &output.ClaimOutput{
@@ -172,6 +184,8 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenInput *input.Toke
 }
 
 func (a authInteractor) Refresh(ctx context.Context, tokenInput *input.TokenInput) (*output.TokenOutput, error) {
+	authenticationErrors := app_error.NewAuthenticationErrors()
+
 	if err := a.validate.StructCtx(ctx, tokenInput); err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -194,13 +208,17 @@ func (a authInteractor) Refresh(ctx context.Context, tokenInput *input.TokenInpu
 	claim, err := a.claimService.GetById(ctx, userId)
 	if err != nil {
 		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
-			return nil, authentication_error.NewAuthenticationRevokedError()
+			detailErr := detail_error.NewTokenRevokedError()
+			authenticationErrors.AddDetailError(detailErr)
+			return nil, authenticationErrors
 		}
 		return nil, errors.WithStack(err)
 	}
 
 	if claim.GetJti().String() == jti.String() {
-		return nil, authentication_error.NewLoggedInByAnotherDeviceError()
+		detailErr := detail_error.NewTokenRevokedError()
+		authenticationErrors.AddDetailError(detailErr)
+		return nil, authenticationErrors
 	}
 
 	tokenOutput := new(output.TokenOutput)
@@ -211,4 +229,49 @@ func (a authInteractor) Refresh(ctx context.Context, tokenInput *input.TokenInpu
 	tokenOutput.AccessToken = accessToken
 
 	return tokenOutput, nil
+}
+
+func (a authInteractor) Revoke(ctx context.Context, tokenInput *input.TokenInput) error {
+	authenticationErrors := app_error.NewAuthenticationErrors()
+
+	if err := a.validate.StructCtx(ctx, tokenInput); err != nil {
+		return errors.WithStack(err)
+	}
+
+	standardClaim, err := a.tokenServiceFactory.GetTokenService(service.RefreshToken).DecryptToken(ctx, tokenInput.Token)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	userId, err := uuid.Parse(standardClaim.Subject)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	jti, err := uuid.Parse(standardClaim.Id)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+
+	claim, err := a.claimService.GetById(ctx, userId)
+	if err != nil {
+		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
+			detailErr := detail_error.NewTokenRevokedError()
+			authenticationErrors.AddDetailError(detailErr)
+			return authenticationErrors
+		}
+		return errors.WithStack(err)
+	}
+
+	if claim.GetJti().String() == jti.String() {
+		detailErr := detail_error.NewTokenRevokedError()
+		authenticationErrors.AddDetailError(detailErr)
+		return authenticationErrors
+	}
+
+	if err := a.claimService.Delete(ctx, claim); err != nil {
+		return errors.WithStack(err)
+	}
+
+	return nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/VulpesFerrilata/auth/internal/domain/entity"
-	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -35,7 +34,7 @@ func (c userCredentialRepository) GetByUsername(ctx context.Context, username st
 
 	err := c.transactionMiddleware.Get(ctx).Where("username = ?", username).First(userCredentialEntity).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		err = app_error.NewRecordNotFoundError("user credential")
+		return nil, nil
 	}
 	return userCredentialEntity, errors.WithStack(err)
 }

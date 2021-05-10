@@ -13,10 +13,10 @@ func NewTokenRevokedError() app_error.DetailError {
 type tokenRevokedError struct{}
 
 func (t tokenRevokedError) Error() string {
-	return "token revoked"
+	return "token is revoked"
 }
 
 func (t tokenRevokedError) Translate(trans ut.Translator) (string, error) {
-	detail, err := trans.T("token-revoked-error")
+	detail, err := trans.T("revoked-token-error")
 	return detail, errors.WithStack(err)
 }

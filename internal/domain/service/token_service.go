@@ -48,28 +48,21 @@ func (t tokenService) DecryptToken(ctx context.Context, token string) (*jwt.Stan
 	if _, err := parser.ParseWithClaims(token, standardClaim, func(token *jwt.Token) (interface{}, error) {
 		return []byte(t.secretKey), nil
 	}); err != nil {
-		detailErr := detail_error.NewTokenInvalidError()
+		detailErr := detail_error.NewInvalidTokenError()
 		authenticationErrs.AddDetailError(detailErr)
 		return nil, authenticationErrs
 	}
 
-	if err := t.validate(ctx, standardClaim); err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	return standardClaim, nil
-}
-
-func (t tokenService) validate(ctx context.Context, standardClaim *jwt.StandardClaims) error {
-	authenticationErrs := app_error.NewAuthenticationErrors()
-
 	now := time.Now().Unix()
 	if !standardClaim.VerifyExpiresAt(now, true) {
 		delta := time.Unix(now, 0).Sub(time.Unix(standardClaim.ExpiresAt, 0))
-		detailErr := detail_error.NewTokenExpiredError(delta)
+		detailErr := detail_error.NewExpiredTokenError(delta)
 		authenticationErrs.AddDetailError(detailErr)
-		return authenticationErrs
 	}
 
-	return nil
+	if authenticationErrs.HasErrors() {
+		return nil, authenticationErrs
+	}
+
+	return standardClaim, nil
 }

@@ -44,6 +44,10 @@ func (c *userCredentialMapper) GetModelState(ctx context.Context, userCredential
 }
 
 func (c *userCredentialMapper) GetModel(ctx context.Context, userCredentialEntity *entity.UserCredential) *model.UserCredential {
+	if userCredentialEntity == nil {
+		return nil
+	}
+
 	userCredential := model.NewUserCredential(
 		userCredentialEntity.ID,
 		userCredentialEntity.Username,
@@ -65,6 +69,10 @@ func (c *userCredentialMapper) GetModel(ctx context.Context, userCredentialEntit
 }
 
 func (c *userCredentialMapper) GetEntity(ctx context.Context, userCredential *model.UserCredential) *entity.UserCredential {
+	if userCredential == nil {
+		return nil
+	}
+
 	newUserCredentialEntity := new(entity.UserCredential)
 	newUserCredentialEntity.ID = userCredential.GetId()
 	newUserCredentialEntity.Username = userCredential.GetUsername()

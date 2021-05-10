@@ -1,14 +1,12 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 
 	"github.com/asim/go-micro/v3/server"
 	"github.com/pkg/errors"
 
 	"github.com/VulpesFerrilata/auth/initialize"
-	"github.com/VulpesFerrilata/auth/internal/pkg/app_error/authentication_error"
 	grpcClient "github.com/VulpesFerrilata/go-micro/plugins/client/grpc"
 	grpcServer "github.com/VulpesFerrilata/go-micro/plugins/server/grpc"
 	"github.com/VulpesFerrilata/grpc/protoc/auth"
@@ -38,19 +36,7 @@ func main() {
 			server.WrapHandler(recoverMiddleware.HandlerWrapper),
 			server.WrapHandler(transactionMiddleware.HandlerWrapperWithTxOptions(&sql.TxOptions{})),
 			server.WrapHandler(translatorMiddleware.HandlerWrapper),
-			server.WrapHandler(func(hf server.HandlerFunc) server.HandlerFunc {
-				wrapper := func(ctx context.Context, request server.Request, response interface{}) error {
-					err := hf(ctx, request, response)
-
-					if authenticationErr, ok := errors.Cause(err).(authentication_error.AuthenticationError); ok {
-						err = authentication_error.NewAuthenticationErrors(authenticationErr)
-					}
-
-					return err
-				}
-
-				return errorHandlerMiddleware.HandlerWrapper(wrapper)
-			}),
+			server.WrapHandler(errorHandlerMiddleware.HandlerWrapper),
 		)
 
 		// Register Handler
