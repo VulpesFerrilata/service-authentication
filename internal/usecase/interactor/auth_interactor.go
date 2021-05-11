@@ -98,10 +98,10 @@ func (a authInteractor) Login(ctx context.Context, credentialInput *input.Creden
 	}
 
 	claim, err := a.claimService.GetById(ctx, userCredential.GetId())
-	if err != nil {
+	if err != nil && !app_error.IsRecordNotFoundError(err) {
 		return nil, errors.WithStack(err)
 	}
-	if claim == nil {
+	if app_error.IsRecordNotFoundError(err) {
 		claim, err = a.claimService.NewClaim(ctx, userCredential.GetId(), jti)
 		if err != nil {
 			return nil, errors.WithStack(err)

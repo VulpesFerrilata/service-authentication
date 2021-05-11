@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/VulpesFerrilata/auth/internal/domain/entity"
+	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -36,7 +37,7 @@ func (c claimRepository) GetById(ctx context.Context, id uuid.UUID) (*entity.Cla
 
 	err := c.transactionMiddleware.Get(ctx).First(claimEntity, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, app_error.NewRecordNotFoundError("claim")
 	}
 	return claimEntity, errors.WithStack(err)
 }
