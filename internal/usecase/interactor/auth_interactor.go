@@ -83,13 +83,13 @@ func (a authInteractor) Login(ctx context.Context, credentialInput *input.Creden
 
 	userCredential, err := a.userCredentialService.GetByUsername(ctx, credentialInput.Username)
 	if err != nil {
-		detailErr := detail_error.NewInvalidPasswordError()
-		authenticationErrs.AddDetailError(detailErr)
-		return nil, authenticationErrs
+		return nil, errors.WithStack(err)
 	}
 
 	if err := bcrypt.CompareHashAndPassword(userCredential.GetHashPassword(), []byte(credentialInput.Password)); err != nil {
-		return nil, errors.WithStack(err)
+		detailErr := detail_error.NewInvalidPasswordError()
+		authenticationErrs.AddDetailError(detailErr)
+		return nil, authenticationErrs
 	}
 
 	jti, err := uuid.NewRandom()
@@ -163,7 +163,7 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenInput *input.Toke
 
 	claim, err := a.claimService.GetById(ctx, id)
 	if err != nil {
-		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
+		if app_error.IsRecordNotFoundError(err) {
 			detailErr := detail_error.NewTokenRevokedError()
 			authenticationErrors.AddDetailError(detailErr)
 			return nil, authenticationErrors
@@ -171,8 +171,8 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenInput *input.Toke
 		return nil, errors.WithStack(err)
 	}
 
-	if claim.GetJti().String() == jti.String() {
-		detailErr := detail_error.NewTokenRevokedError()
+	if claim.GetJti().String() != jti.String() {
+		detailErr := detail_error.NewDuplicateLoginError()
 		authenticationErrors.AddDetailError(detailErr)
 		return nil, authenticationErrors
 	}
@@ -207,7 +207,7 @@ func (a authInteractor) Refresh(ctx context.Context, tokenInput *input.TokenInpu
 
 	claim, err := a.claimService.GetById(ctx, userId)
 	if err != nil {
-		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
+		if app_error.IsRecordNotFoundError(err) {
 			detailErr := detail_error.NewTokenRevokedError()
 			authenticationErrors.AddDetailError(detailErr)
 			return nil, authenticationErrors
@@ -215,8 +215,8 @@ func (a authInteractor) Refresh(ctx context.Context, tokenInput *input.TokenInpu
 		return nil, errors.WithStack(err)
 	}
 
-	if claim.GetJti().String() == jti.String() {
-		detailErr := detail_error.NewTokenRevokedError()
+	if claim.GetJti().String() != jti.String() {
+		detailErr := detail_error.NewDuplicateLoginError()
 		authenticationErrors.AddDetailError(detailErr)
 		return nil, authenticationErrors
 	}
@@ -255,7 +255,7 @@ func (a authInteractor) Revoke(ctx context.Context, tokenInput *input.TokenInput
 
 	claim, err := a.claimService.GetById(ctx, userId)
 	if err != nil {
-		if app_error.IsRecordNotFoundError(errors.Cause(err)) {
+		if app_error.IsRecordNotFoundError(err) {
 			detailErr := detail_error.NewTokenRevokedError()
 			authenticationErrors.AddDetailError(detailErr)
 			return authenticationErrors
@@ -263,8 +263,8 @@ func (a authInteractor) Revoke(ctx context.Context, tokenInput *input.TokenInput
 		return errors.WithStack(err)
 	}
 
-	if claim.GetJti().String() == jti.String() {
-		detailErr := detail_error.NewTokenRevokedError()
+	if claim.GetJti().String() != jti.String() {
+		detailErr := detail_error.NewDuplicateLoginError()
 		authenticationErrors.AddDetailError(detailErr)
 		return authenticationErrors
 	}
