@@ -10,7 +10,7 @@ require (
 	github.com/VulpesFerrilata/go-micro/plugins/client/grpc v0.0.0-20210419083936-3c392b08f80a
 	github.com/VulpesFerrilata/go-micro/plugins/server/grpc v0.0.0-20210419083936-3c392b08f80a
 	github.com/VulpesFerrilata/grpc v0.0.0-20210507112621-5ac506218f3d
-	github.com/VulpesFerrilata/library v0.0.0-20210511040418-fd0496952c38
+	github.com/VulpesFerrilata/library v0.0.0-20210511151839-20fc5102e92b
 	github.com/andybalholm/brotli v1.0.1-0.20200619015827-c3da72aa01ed // indirect
 	github.com/asim/go-micro/plugins/server/http/v3 v3.0.0-20210408173139-0d57213d3f5c
 	github.com/asim/go-micro/v3 v3.5.0

@@ -16,10 +16,11 @@ type UserCredentialService interface {
 	Save(ctx context.Context, userCredential *model.UserCredential) (*model.UserCredential, error)
 }
 
-func NewUserCredentialService(userCredentialRepository repository.UserCredentialRepository) UserCredentialService {
+func NewUserCredentialService(userCredentialRepository repository.UserCredentialRepository,
+	userCredentialMapper mapper.UserCredentialMapper) UserCredentialService {
 	return &userCredentialService{
 		userCredentialRepository: userCredentialRepository,
-		userCredentialMapper:     mapper.NewUserCredentialMapper(),
+		userCredentialMapper:     userCredentialMapper,
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"github.com/VulpesFerrilata/auth/infrastructure/iris/router"
 	"github.com/VulpesFerrilata/auth/infrastructure/iris/server"
 	"github.com/VulpesFerrilata/auth/infrastructure/micro/handler"
+	"github.com/VulpesFerrilata/auth/internal/domain/mapper"
 	"github.com/VulpesFerrilata/auth/internal/domain/repository"
 	"github.com/VulpesFerrilata/auth/internal/domain/service"
 	"github.com/VulpesFerrilata/auth/internal/pkg/micro/flags"
@@ -79,8 +80,13 @@ func InitContainer(opts ...micro.Option) *dig.Container {
 	container.Provide(middleware.NewErrorHandlerMiddleware)
 
 	//--Repositories
+	container.Provide(repository.NewUserCredentialRepository)
 	container.Provide(repository.NewClaimRepository)
+	//--Mappers
+	container.Provide(mapper.NewUserCredentialMapper)
+	container.Provide(mapper.NewClaimMapper)
 	//--Services
+	container.Provide(service.NewUserCredentialService)
 	container.Provide(service.NewClaimService)
 	container.Provide(func(ctx *cli.Context) service.TokenServiceFactory {
 		accessTokenAlg := flags.GetAccessTokenAlg(ctx)

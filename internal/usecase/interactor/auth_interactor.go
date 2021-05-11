@@ -92,22 +92,22 @@ func (a authInteractor) Login(ctx context.Context, credentialInput *input.Creden
 		return nil, authenticationErrs
 	}
 
-	jti, err := uuid.NewRandom()
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
 	claim, err := a.claimService.GetById(ctx, userCredential.GetId())
 	if err != nil && !app_error.IsRecordNotFoundError(err) {
 		return nil, errors.WithStack(err)
 	}
 	if app_error.IsRecordNotFoundError(err) {
-		claim, err = a.claimService.NewClaim(ctx, userCredential.GetId(), jti)
+		claim, err = a.claimService.NewClaim(ctx, userCredential)
 		if err != nil {
 			return nil, errors.WithStack(err)
 		}
+	} else {
+		jti, err := uuid.NewRandom()
+		if err != nil {
+			return nil, errors.WithStack(err)
+		}
+		claim.SetJti(jti)
 	}
-	claim.SetJti(jti)
 
 	claim, err = a.claimService.Save(ctx, claim)
 	if err != nil {

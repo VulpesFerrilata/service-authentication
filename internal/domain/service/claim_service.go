@@ -11,16 +11,17 @@ import (
 )
 
 type ClaimService interface {
-	NewClaim(ctx context.Context, id uuid.UUID, jti uuid.UUID) (*model.Claim, error)
+	NewClaim(ctx context.Context, userCredential *model.UserCredential) (*model.Claim, error)
 	GetById(ctx context.Context, id uuid.UUID) (*model.Claim, error)
 	Save(ctx context.Context, claim *model.Claim) (*model.Claim, error)
 	Delete(ctx context.Context, claim *model.Claim) error
 }
 
-func NewClaimService(claimRepository repository.ClaimRepository) ClaimService {
+func NewClaimService(claimRepository repository.ClaimRepository,
+	claimMapper mapper.ClaimMapper) ClaimService {
 	return &claimService{
 		claimRepository: claimRepository,
-		claimMapper:     mapper.NewClaimMapper(),
+		claimMapper:     claimMapper,
 	}
 }
 
@@ -29,8 +30,13 @@ type claimService struct {
 	claimMapper     mapper.ClaimMapper
 }
 
-func (c claimService) NewClaim(ctx context.Context, id uuid.UUID, jti uuid.UUID) (*model.Claim, error) {
-	claim := model.NewClaim(id, jti)
+func (c claimService) NewClaim(ctx context.Context, userCredential *model.UserCredential) (*model.Claim, error) {
+	jti, err := uuid.NewRandom()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	claim := model.NewClaim(userCredential.GetId(), jti)
 	return claim, nil
 }
 
