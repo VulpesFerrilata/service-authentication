@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/VulpesFerrilata/auth/internal/domain/mapper"
 	"github.com/VulpesFerrilata/auth/internal/domain/model"
@@ -11,8 +12,8 @@ import (
 )
 
 type UserCredentialService interface {
-	NewUserCredential(ctx context.Context, id uuid.UUID, username string, hashPassword []byte) (*model.UserCredential, error)
-	GetByUsername(ctx context.Context, username string) (*model.UserCredential, error)
+	NewUserCredential(ctx context.Context, userID uuid.UUID, hashPassword []byte) (*model.UserCredential, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*model.UserCredential, error)
 	Save(ctx context.Context, userCredential *model.UserCredential) (*model.UserCredential, error)
 }
 
@@ -29,31 +30,35 @@ type userCredentialService struct {
 	userCredentialMapper     mapper.UserCredentialMapper
 }
 
-func (c userCredentialService) NewUserCredential(ctx context.Context, id uuid.UUID, username string, hashPassword []byte) (*model.UserCredential, error) {
-	userCredential := model.NewUserCredential(id, username, hashPassword)
+func (u userCredentialService) NewUserCredential(ctx context.Context, userID uuid.UUID, hashPassword []byte) (*model.UserCredential, error) {
+	id, err := uuid.NewRandom()
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	userCredential := model.NewUserCredential(id, userID, hashPassword, time.Now())
 	return userCredential, nil
 }
 
-func (c userCredentialService) GetByUsername(ctx context.Context, username string) (*model.UserCredential, error) {
-	userCredentialEntity, err := c.userCredentialRepository.GetByUsername(ctx, username)
-
-	return c.userCredentialMapper.GetModel(ctx, userCredentialEntity), errors.WithStack(err)
+func (u userCredentialService) GetByUserID(ctx context.Context, userID uuid.UUID) (*model.UserCredential, error) {
+	userCredentialEntity, err := u.userCredentialRepository.GetByUserID(ctx, userID)
+	return u.userCredentialMapper.GetModel(ctx, userCredentialEntity), errors.WithStack(err)
 }
 
-func (c userCredentialService) Save(ctx context.Context, userCredential *model.UserCredential) (*model.UserCredential, error) {
-	userCredentialEntity := c.userCredentialMapper.GetEntity(ctx, userCredential)
+func (u userCredentialService) Save(ctx context.Context, userCredential *model.UserCredential) (*model.UserCredential, error) {
+	userCredentialEntity := u.userCredentialMapper.GetEntity(ctx, userCredential)
 
-	modelState := c.userCredentialMapper.GetModelState(ctx, userCredential)
+	modelState := u.userCredentialMapper.GetModelState(ctx, userCredential)
 	switch modelState {
 	case mapper.New:
-		if err := c.userCredentialRepository.Insert(ctx, userCredentialEntity); err != nil {
+		if err := u.userCredentialRepository.Insert(ctx, userCredentialEntity); err != nil {
 			return nil, errors.WithStack(err)
 		}
 	case mapper.Modified:
-		if err := c.userCredentialRepository.Update(ctx, userCredentialEntity); err != nil {
+		if err := u.userCredentialRepository.Update(ctx, userCredentialEntity); err != nil {
 			return nil, errors.WithStack(err)
 		}
 	}
 
-	return c.userCredentialMapper.GetModel(ctx, userCredentialEntity), nil
+	return u.userCredentialMapper.GetModel(ctx, userCredentialEntity), nil
 }

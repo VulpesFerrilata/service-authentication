@@ -21,8 +21,7 @@ type authHandler struct {
 
 func (a authHandler) CreateUserCredential(ctx context.Context, userCredentialInputPb *auth.UserCredentialRequest, userCredentialResponsePb *auth.UserCredentialResponse) error {
 	userCredentialInput := new(input.UserCredentialInput)
-	userCredentialInput.ID = userCredentialInputPb.GetID()
-	userCredentialInput.Username = userCredentialInputPb.GetUsername()
+	userCredentialInput.UserID = userCredentialInputPb.GetUserID()
 	userCredentialInput.Password = userCredentialInputPb.GetPassword()
 
 	userCredentialOutput, err := a.authInteractor.CreateUserCredential(ctx, userCredentialInput)
@@ -31,7 +30,6 @@ func (a authHandler) CreateUserCredential(ctx context.Context, userCredentialInp
 	}
 
 	userCredentialResponsePb.ID = userCredentialOutput.ID
-	userCredentialResponsePb.Username = userCredentialOutput.Username
 
 	return nil
 }

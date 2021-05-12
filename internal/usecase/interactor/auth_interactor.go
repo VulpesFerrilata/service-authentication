@@ -26,12 +26,14 @@ type AuthInteractor interface {
 func NewAuthInteractor(validate *validator.Validate,
 	userCredentialService service.UserCredentialService,
 	claimService service.ClaimService,
-	tokenServiceFactory service.TokenServiceFactory) AuthInteractor {
+	tokenServiceFactory service.TokenServiceFactory,
+	userService service.UserService) AuthInteractor {
 	return &authInteractor{
 		validate:              validate,
 		userCredentialService: userCredentialService,
 		claimService:          claimService,
 		tokenServiceFactory:   tokenServiceFactory,
+		userService:           userService,
 	}
 }
 
@@ -40,6 +42,7 @@ type authInteractor struct {
 	userCredentialService service.UserCredentialService
 	claimService          service.ClaimService
 	tokenServiceFactory   service.TokenServiceFactory
+	userService           service.UserService
 }
 
 func (a authInteractor) CreateUserCredential(ctx context.Context, userCredentialInput *input.UserCredentialInput) (*output.UserCredentialOutput, error) {
@@ -47,7 +50,7 @@ func (a authInteractor) CreateUserCredential(ctx context.Context, userCredential
 		return nil, errors.WithStack(err)
 	}
 
-	userId, err := uuid.Parse(userCredentialInput.ID)
+	userId, err := uuid.Parse(userCredentialInput.UserID)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -57,7 +60,7 @@ func (a authInteractor) CreateUserCredential(ctx context.Context, userCredential
 		return nil, errors.WithStack(err)
 	}
 
-	userCredential, err := a.userCredentialService.NewUserCredential(ctx, userId, userCredentialInput.Username, hashPassword)
+	userCredential, err := a.userCredentialService.NewUserCredential(ctx, userId, hashPassword)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -68,8 +71,7 @@ func (a authInteractor) CreateUserCredential(ctx context.Context, userCredential
 	}
 
 	userCredentialOutput := &output.UserCredentialOutput{
-		ID:       userCredential.GetId().String(),
-		Username: userCredential.GetUsername(),
+		ID: userCredential.GetID().String(),
 	}
 	return userCredentialOutput, nil
 }
@@ -81,7 +83,12 @@ func (a authInteractor) Login(ctx context.Context, credentialInput *input.Creden
 		return nil, errors.WithStack(err)
 	}
 
-	userCredential, err := a.userCredentialService.GetByUsername(ctx, credentialInput.Username)
+	user, err := a.userService.GetByUsername(ctx, credentialInput.Username)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
+
+	userCredential, err := a.userCredentialService.GetByUserID(ctx, user.GetID())
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -92,7 +99,7 @@ func (a authInteractor) Login(ctx context.Context, credentialInput *input.Creden
 		return nil, authenticationErrs
 	}
 
-	claim, err := a.claimService.GetById(ctx, userCredential.GetId())
+	claim, err := a.claimService.GetByUserID(ctx, userCredential.GetUserID())
 	if err != nil && !app_error.IsRecordNotFoundError(err) {
 		return nil, errors.WithStack(err)
 	}
@@ -161,7 +168,7 @@ func (a authInteractor) Authenticate(ctx context.Context, tokenInput *input.Toke
 		return nil, errors.WithStack(err)
 	}
 
-	claim, err := a.claimService.GetById(ctx, id)
+	claim, err := a.claimService.GetByUserID(ctx, id)
 	if err != nil {
 		if app_error.IsRecordNotFoundError(err) {
 			detailErr := detail_error.NewTokenRevokedError()
@@ -205,7 +212,7 @@ func (a authInteractor) Refresh(ctx context.Context, tokenInput *input.TokenInpu
 		return nil, errors.WithStack(err)
 	}
 
-	claim, err := a.claimService.GetById(ctx, userId)
+	claim, err := a.claimService.GetByUserID(ctx, userId)
 	if err != nil {
 		if app_error.IsRecordNotFoundError(err) {
 			detailErr := detail_error.NewTokenRevokedError()
@@ -253,7 +260,7 @@ func (a authInteractor) Revoke(ctx context.Context, tokenInput *input.TokenInput
 		return errors.WithStack(err)
 	}
 
-	claim, err := a.claimService.GetById(ctx, userId)
+	claim, err := a.claimService.GetByUserID(ctx, userId)
 	if err != nil {
 		if app_error.IsRecordNotFoundError(err) {
 			detailErr := detail_error.NewTokenRevokedError()

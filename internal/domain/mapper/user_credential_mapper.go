@@ -50,8 +50,9 @@ func (c *userCredentialMapper) GetModel(ctx context.Context, userCredentialEntit
 
 	userCredential := model.NewUserCredential(
 		userCredentialEntity.ID,
-		userCredentialEntity.Username,
+		userCredentialEntity.UserID,
 		userCredentialEntity.HashPassword,
+		userCredentialEntity.CreatedAt,
 	)
 
 	c.userCredentialMapLock.Lock()
@@ -74,8 +75,8 @@ func (c *userCredentialMapper) GetEntity(ctx context.Context, userCredential *mo
 	}
 
 	newUserCredentialEntity := new(entity.UserCredential)
-	newUserCredentialEntity.ID = userCredential.GetId()
-	newUserCredentialEntity.Username = userCredential.GetUsername()
+	newUserCredentialEntity.ID = userCredential.GetID()
+	newUserCredentialEntity.UserID = userCredential.GetUserID()
 	newUserCredentialEntity.HashPassword = userCredential.GetHashPassword()
 
 	c.userCredentialMapLock.RLock()

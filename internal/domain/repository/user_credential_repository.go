@@ -4,14 +4,13 @@ import (
 	"context"
 
 	"github.com/VulpesFerrilata/auth/internal/domain/entity"
-	"github.com/VulpesFerrilata/library/pkg/app_error"
 	"github.com/VulpesFerrilata/library/pkg/middleware"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
 )
 
 type SafeUserCredentialRepository interface {
-	GetByUsername(ctx context.Context, username string) (*entity.UserCredential, error)
+	GetByUserID(ctx context.Context, userID uuid.UUID) (*entity.UserCredential, error)
 }
 
 type UserCredentialRepository interface {
@@ -30,13 +29,9 @@ type userCredentialRepository struct {
 	transactionMiddleware *middleware.TransactionMiddleware
 }
 
-func (c userCredentialRepository) GetByUsername(ctx context.Context, username string) (*entity.UserCredential, error) {
+func (c userCredentialRepository) GetByUserID(ctx context.Context, userID uuid.UUID) (*entity.UserCredential, error) {
 	userCredentialEntity := new(entity.UserCredential)
-
-	err := c.transactionMiddleware.Get(ctx).Where("username = ?", username).First(userCredentialEntity).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, app_error.NewRecordNotFoundError("user credential")
-	}
+	err := c.transactionMiddleware.Get(ctx).Where("user_id = ?", userID).First(userCredentialEntity).Error
 	return userCredentialEntity, errors.WithStack(err)
 }
 
